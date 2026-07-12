@@ -55,8 +55,11 @@ function normalize(value: string) {
 }
 
 function slugify(value: string) {
-  return normalize(value)
-    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .trim()
+    .replace(/[^\p{Letter}\p{Number}\p{Mark}]+/gu, "-")
     .replace(/(^-|-$)/g, "");
 }
 
@@ -140,7 +143,7 @@ async function loadSongs(includeUnpublished = false): Promise<Song[]> {
       row as Record<string, unknown>,
       artists,
       movies,
-      relationRows as Array<{ song_id: string; artist_id: string; sort_order: number }>,
+      relationRows as unknown as Array<{ song_id: string; artist_id: string; sort_order: number }>,
     ),
   );
 }

@@ -5,7 +5,7 @@ import { getFacets, listArtistSongs, listSongs, slugify } from "@/lib/repository
 describe("catalog discovery", () => {
   it("normalizes SEO-safe Unicode slugs", () => {
     expect(slugify("Cerca del Mar!")).toBe("cerca-del-mar");
-    expect(slugify("बारिश के ख़त")).toBe("बरश-क-खत");
+    expect(slugify("बारिश के ख़त")).toBe("बारिश-के-ख़त");
   });
 
   it("searches titles, lyrics, metadata, and artists", async () => {
