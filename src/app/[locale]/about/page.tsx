@@ -4,6 +4,7 @@ import { CheckCircle2, Globe2, HeartHandshake, ShieldCheck } from "lucide-react"
 export const metadata: Metadata = {
   title: "About us",
   description: "Learn why LyricsPro is building a trusted, multilingual home for song lyrics and music context.",
+  alternates: { canonical: "/en/about" },
 };
 
 export default function AboutPage() {

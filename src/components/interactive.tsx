@@ -49,6 +49,7 @@ export function LyricsViewer({ versions }: { versions: LyricVersion[] }) {
               onClick={() => setActiveId(version.id)}
               role="tab"
               aria-selected={version.id === active.id}
+              aria-controls={`lyrics-${version.id}`}
               type="button"
             >
               {version.language}
@@ -60,10 +61,20 @@ export function LyricsViewer({ versions }: { versions: LyricVersion[] }) {
           {copied ? <Check size={17} /> : <Copy size={17} />}
         </button>
       </div>
-      <div className="lyrics-text" lang={active.languageCode}>
-        {active.text}
-      </div>
-      {active.source && <p className="source-note">Source: {active.source}</p>}
+      {versions.map((version) => (
+        <section
+          id={`lyrics-${version.id}`}
+          role="tabpanel"
+          aria-label={`${version.language} ${version.type} lyrics`}
+          hidden={version.id !== active.id}
+          key={version.id}
+        >
+          <div className="lyrics-text" lang={version.languageCode}>
+            {version.text}
+          </div>
+          {version.source && <p className="source-note">Source: {version.source}</p>}
+        </section>
+      ))}
     </div>
   );
 }

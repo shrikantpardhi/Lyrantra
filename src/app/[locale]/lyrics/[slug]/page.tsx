@@ -9,8 +9,8 @@ import {
   PlatformLinks,
   SongGrid,
 } from "@/components/site";
-import { getComments, getSongBySlug, listSongs } from "@/lib/repository";
-import { locales } from "@/lib/types";
+import { getComments, getSongBySlug, listSongs, slugify } from "@/lib/repository";
+import { getSiteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({
   params,
@@ -26,10 +26,10 @@ export async function generateMetadata({
     description: `${song.title} lyrics by ${artists}. ${song.description}`.slice(0, 158),
     alternates: {
       canonical: `/${locale}/lyrics/${song.slug}`,
-      languages: Object.fromEntries(locales.map((code) => [code, `/${code}/lyrics/${song.slug}`])),
     },
     openGraph: {
       type: "article",
+      url: `/${locale}/lyrics/${song.slug}`,
       title: `${song.title} lyrics — ${artists}`,
       description: song.description,
     },
@@ -52,28 +52,45 @@ export default async function LyricsPage({
   ]);
   const relatedSongs = related.items.filter((item) => item.id !== song.id).slice(0, 3);
   const artistNames = song.artists.map((artist) => artist.name).join(", ");
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl = getSiteUrl();
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "MusicRecording",
-    name: song.title,
-    url: `${siteUrl}/${locale}/lyrics/${song.slug}`,
-    inLanguage: song.lyrics.map((lyric) => lyric.languageCode),
-    datePublished: `${song.releaseYear}-01-01`,
-    byArtist: song.artists.map((artist) => ({
-      "@type": artist.slug === "traditional" ? "Organization" : "Person",
-      name: artist.name,
-      url: `${siteUrl}/${locale}/artist/${artist.slug}`,
-    })),
-    recordingOf: {
-      "@type": "MusicComposition",
-      name: song.title,
-      lyrics: song.lyrics.map((lyric) => ({
-        "@type": "CreativeWork",
-        inLanguage: lyric.languageCode,
-        text: lyric.text,
-      })),
-    },
+    "@graph": [
+      {
+        "@type": "MusicRecording",
+        name: song.title,
+        url: `${siteUrl}/${locale}/lyrics/${song.slug}`,
+        inLanguage: song.language,
+        dateModified: song.updatedAt,
+        byArtist: song.artists.map((artist) => ({
+          "@type": artist.slug === "traditional" ? "MusicGroup" : "Person",
+          name: artist.name,
+          url: `${siteUrl}/${locale}/artist/${artist.slug}`,
+        })),
+        recordingOf: {
+          "@type": "MusicComposition",
+          name: song.title,
+          lyrics: song.lyrics.map((lyric) => ({
+            "@type": "CreativeWork",
+            inLanguage: lyric.languageCode,
+            text: lyric.text,
+          })),
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: `${siteUrl}/${locale}` },
+          { "@type": "ListItem", position: 2, name: "Lyrics", item: `${siteUrl}/${locale}/search` },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: song.title,
+            item: `${siteUrl}/${locale}/lyrics/${song.slug}`,
+          },
+        ],
+      },
+    ],
   };
 
   return (
@@ -89,7 +106,7 @@ export default async function LyricsPage({
             <header className="song-title">
               <div className="song-title-row">
                 <div>
-                  <div className="eyebrow">{song.category}</div>
+                  <Link className="eyebrow" href={`/${locale}/category/${slugify(song.category)}`}>{song.category}</Link>
                   <h1>{song.title}</h1>
                   {song.alternateTitle && <p className="alternate-title">{song.alternateTitle}</p>}
                 </div>
@@ -105,9 +122,9 @@ export default async function LyricsPage({
                 ))}
               </div>
               <div className="meta-pills">
-                <span><Music size={14} />{song.genre}</span>
-                <span><Calendar size={14} />{song.releaseYear}</span>
-                <span><Tag size={14} />{song.language}</span>
+                <Link href={`/${locale}/genre/${slugify(song.genre)}`}><Music size={14} />{song.genre}</Link>
+                <Link href={`/${locale}/year/${song.releaseYear}`}><Calendar size={14} />{song.releaseYear}</Link>
+                <Link href={`/${locale}/language/${slugify(song.language)}`}><Tag size={14} />{song.language}</Link>
                 {song.movie && <span><Film size={14} />{song.movie.title}</span>}
               </div>
             </header>
@@ -121,7 +138,7 @@ export default async function LyricsPage({
               <p>{song.description}</p>
               <div className="tag-list">
                 {song.tags.map((tag) => (
-                  <Link href={`/${locale}/search?q=${encodeURIComponent(tag)}`} key={tag}>#{tag}</Link>
+                  <Link href={`/${locale}/tag/${slugify(tag)}`} key={tag}>#{tag}</Link>
                 ))}
               </div>
             </section>

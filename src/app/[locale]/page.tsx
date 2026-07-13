@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BookOpenText, Globe2, Headphones, Search, Sparkles, Tags } from "lucide-react";
 import { ArtistCard, SongGrid } from "@/components/site";
-import { getFacets, listArtists, listSongs } from "@/lib/repository";
+import { getFacets, listArtists, listSongs, slugify } from "@/lib/repository";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Lyrics, translations and the stories behind songs",
   description:
     "Search reviewed multilingual lyrics, translations, transliterations, artist credits, movie songs, and official listening links.",
+  alternates: { canonical: "/en" },
 };
 
 export default async function LocaleHome({
@@ -21,6 +23,7 @@ export default async function LocaleHome({
     listArtists(),
     getFacets(),
   ]);
+  const siteUrl = getSiteUrl();
 
   return (
     <>
@@ -42,7 +45,7 @@ export default async function LocaleHome({
             <div className="quick-filters">
               <span>Popular:</span>
               {facets.categories.slice(0, 4).map((category) => (
-                <Link key={category} href={`/${locale}/search?category=${encodeURIComponent(category)}`}>
+                <Link key={category} href={`/${locale}/category/${slugify(category)}`}>
                   {category}
                 </Link>
               ))}
@@ -77,7 +80,7 @@ export default async function LocaleHome({
               const icons = [Headphones, Sparkles, Tags, BookOpenText];
               const Icon = icons[index % icons.length];
               return (
-                <Link className="category-card" key={category} href={`/${locale}/search?category=${encodeURIComponent(category)}`}>
+                <Link className="category-card" key={category} href={`/${locale}/category/${slugify(category)}`}>
                   <Icon />
                   <span><strong>{category}</strong><span>Explore the collection →</span></span>
                 </Link>
@@ -97,6 +100,23 @@ export default async function LocaleHome({
           </div>
         </div>
       </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "LyricsPro",
+            url: `${siteUrl}/${locale}`,
+            description: "Reviewed multilingual lyrics, translations, credits, and song stories.",
+            publisher: {
+              "@type": "Organization",
+              name: "LyricsPro",
+              url: siteUrl,
+            },
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
     </>
   );
 }

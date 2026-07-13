@@ -6,7 +6,7 @@ editorial studio, and human-reviewed AI metadata discovery.
 
 ## Included
 
-- Responsive public site with English, Hindi, Spanish, and Arabic URL namespaces
+- English editorial UI with multilingual lyrics, translations, transliterations, and language filters
 - Song pages with multiple artists and lyric versions
 - Artist pages with pagination and movie soundtrack pages
 - Full-catalog search with category, genre, language, and year filters
@@ -51,7 +51,7 @@ and automated backups.
 npm run lint
 npm run typecheck
 npm test
-npm run build
+NEXT_PUBLIC_SITE_URL=https://lyrics.example.com npm run build
 ```
 
 ## Production configuration
@@ -76,3 +76,9 @@ public-domain and original demonstration data.
 Provider API keys are encrypted with AES-256-GCM before storage and are never returned to the browser.
 Administrative sessions use signed HTTP-only cookies. Production deployments can run through the
 included standalone Docker image or a compatible Node.js platform.
+
+Build the container with its canonical origin:
+
+```bash
+docker build --build-arg NEXT_PUBLIC_SITE_URL=https://lyrics.example.com -t lyricspro .
+```

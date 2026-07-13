@@ -125,33 +125,120 @@ async function loadMovies(): Promise<Movie[]> {
   }));
 }
 
+async function hydrateSongRows(songRows: readonly Record<string, unknown>[]): Promise<Song[]> {
+  if (!songRows.length) return [];
+  const sql = db();
+  const songIds = songRows.map((row) => String(row.id));
+  const [relationRows, artists, movies] = await Promise.all([
+    sql`select song_id, artist_id, sort_order from song_artists where song_id = any(${songIds})`,
+    loadArtists(),
+    loadMovies(),
+  ]);
+  const relations = relationRows as unknown as Array<{
+    song_id: string;
+    artist_id: string;
+    sort_order: number;
+  }>;
+  return songRows.map((row) => rowToSong(row, artists, movies, relations));
+}
+
 async function loadSongs(includeUnpublished = false): Promise<Song[]> {
   if (!databaseEnabled) {
     return memory().songs.filter((song) => includeUnpublished || song.status === "published");
   }
   const sql = db();
-  const [songRows, relationRows, artists, movies] = await Promise.all([
-    includeUnpublished
-      ? sql`select * from songs order by created_at desc`
-      : sql`select * from songs where status = 'published' order by created_at desc`,
-    sql`select song_id, artist_id, sort_order from song_artists`,
-    loadArtists(),
-    loadMovies(),
-  ]);
-  return songRows.map((row) =>
-    rowToSong(
-      row as Record<string, unknown>,
-      artists,
-      movies,
-      relationRows as unknown as Array<{ song_id: string; artist_id: string; sort_order: number }>,
-    ),
-  );
+  const songRows = includeUnpublished
+    ? await sql`select * from songs order by created_at desc`
+    : await sql`select * from songs where status = 'published' order by created_at desc`;
+  return hydrateSongRows(songRows as unknown as Array<Record<string, unknown>>);
 }
 
 export async function listSongs(
   filters: SearchFilters = {},
   includeUnpublished = false,
 ): Promise<Paginated<Song>> {
+  const page = Math.max(1, filters.page ?? 1);
+  const limit = Math.min(50, Math.max(1, filters.limit ?? 12));
+
+  if (databaseEnabled) {
+    const parameters: unknown[] = [];
+    const conditions: string[] = [];
+    const parameter = (value: unknown) => {
+      parameters.push(value);
+      return `$${parameters.length}`;
+    };
+
+    if (!includeUnpublished) conditions.push("s.status = 'published'");
+    let searchParameter: string | undefined;
+    if (filters.query?.trim()) {
+      searchParameter = parameter(filters.query.trim());
+      const patternParameter = parameter(`%${filters.query.trim()}%`);
+      conditions.push(`(
+        s.search_document @@ websearch_to_tsquery('simple', ${searchParameter})
+        or s.title ilike ${patternParameter}
+        or coalesce(s.alternate_title, '') ilike ${patternParameter}
+        or exists (
+          select 1 from song_artists sa
+          join artists a on a.id = sa.artist_id
+          where sa.song_id = s.id and a.name ilike ${patternParameter}
+        )
+        or exists (
+          select 1 from movies m
+          where m.id = s.movie_id and m.title ilike ${patternParameter}
+        )
+      )`);
+    }
+    if (filters.category) conditions.push(`s.category = ${parameter(filters.category)}`);
+    if (filters.genre) conditions.push(`s.genre = ${parameter(filters.genre)}`);
+    if (filters.language) {
+      const languageParameter = parameter(filters.language);
+      conditions.push(`(
+        s.language = ${languageParameter}
+        or exists (
+          select 1 from jsonb_array_elements(s.lyrics) lyric
+          where lyric->>'language' = ${languageParameter}
+        )
+      )`);
+    }
+    if (filters.tag) conditions.push(`${parameter(filters.tag)} = any(s.tags)`);
+    if (filters.artistId) {
+      conditions.push(`exists (
+        select 1 from song_artists selected_artist
+        where selected_artist.song_id = s.id
+          and selected_artist.artist_id = ${parameter(filters.artistId)}
+      )`);
+    }
+    if (filters.movieId) conditions.push(`s.movie_id = ${parameter(filters.movieId)}`);
+    if (filters.year && Number.isInteger(Number(filters.year))) {
+      conditions.push(`s.release_year = ${parameter(Number(filters.year))}`);
+    }
+
+    const where = conditions.length ? `where ${conditions.join(" and ")}` : "";
+    const ranking = searchParameter
+      ? `ts_rank_cd(s.search_document, websearch_to_tsquery('simple', ${searchParameter})) desc,
+         case when lower(s.title) like lower(${searchParameter}) || '%' then 0 else 1 end,`
+      : "";
+    const sql = db();
+    const countRows = await sql.unsafe<Array<{ total: string }>>(
+      `select count(*)::text as total from songs s ${where}`,
+      parameters,
+    );
+    const rowParameters = [...parameters, limit, (page - 1) * limit];
+    const songRows = await sql.unsafe<Array<Record<string, unknown>>>(
+      `select s.* from songs s ${where}
+       order by ${ranking} s.views desc, s.updated_at desc
+       limit $${rowParameters.length - 1} offset $${rowParameters.length}`,
+      rowParameters,
+    );
+    const total = Number(countRows[0]?.total ?? 0);
+    return {
+      items: await hydrateSongRows(songRows),
+      total,
+      page,
+      pages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
   const query = normalize(filters.query ?? "");
   let songs = await loadSongs(includeUnpublished);
   if (query) {
@@ -176,8 +263,17 @@ export async function listSongs(
   }
   if (filters.category) songs = songs.filter((song) => song.category === filters.category);
   if (filters.genre) songs = songs.filter((song) => song.genre === filters.genre);
-  if (filters.language) songs = songs.filter((song) => song.language === filters.language);
+  if (filters.language) {
+    songs = songs.filter(
+      (song) =>
+        song.language === filters.language ||
+        song.lyrics.some((lyric) => lyric.language === filters.language),
+    );
+  }
+  if (filters.tag) songs = songs.filter((song) => song.tags.includes(filters.tag as string));
   if (filters.year) songs = songs.filter((song) => String(song.releaseYear) === filters.year);
+  if (filters.artistId) songs = songs.filter((song) => song.artistIds.includes(filters.artistId as string));
+  if (filters.movieId) songs = songs.filter((song) => song.movieId === filters.movieId);
 
   songs.sort((a, b) => {
     if (query) {
@@ -188,8 +284,6 @@ export async function listSongs(
     return b.views - a.views;
   });
 
-  const page = Math.max(1, filters.page ?? 1);
-  const limit = Math.min(50, Math.max(1, filters.limit ?? 12));
   const total = songs.length;
   return {
     items: songs.slice((page - 1) * limit, page * limit),
@@ -199,11 +293,23 @@ export async function listSongs(
   };
 }
 
+export async function listPublishedSongs() {
+  return loadSongs();
+}
+
 export async function getSongBySlug(slug: string) {
+  if (databaseEnabled) {
+    const rows = await db()`select * from songs where status = 'published' and slug = ${slug} limit 1`;
+    return (await hydrateSongRows(rows as unknown as Array<Record<string, unknown>>))[0];
+  }
   return (await loadSongs()).find((song) => song.slug === slug);
 }
 
 export async function getSongById(id: string) {
+  if (databaseEnabled) {
+    const rows = await db()`select * from songs where id = ${id} limit 1`;
+    return (await hydrateSongRows(rows as unknown as Array<Record<string, unknown>>))[0];
+  }
   return (await loadSongs(true)).find((song) => song.id === id);
 }
 
@@ -245,15 +351,9 @@ export async function getArtistBySlug(slug: string) {
 export async function listArtistSongs(slug: string, page = 1, limit = 8) {
   const artist = await getArtistBySlug(slug);
   if (!artist) return undefined;
-  const all = (await loadSongs()).filter((song) => song.artistIds.includes(artist.id));
   return {
     artist,
-    songs: {
-      items: all.slice((page - 1) * limit, page * limit),
-      total: all.length,
-      page,
-      pages: Math.max(1, Math.ceil(all.length / limit)),
-    } satisfies Paginated<Song>,
+    songs: await listSongs({ artistId: artist.id, page, limit }),
   };
 }
 
@@ -266,18 +366,83 @@ export async function getMovieBySlug(slug: string) {
   if (!movie) return undefined;
   return {
     movie,
-    songs: (await loadSongs()).filter((song) => song.movieId === movie.id),
+    songs: (await listSongs({ movieId: movie.id, limit: 50 })).items,
   };
 }
 
 export async function getFacets() {
+  if (databaseEnabled) {
+    const rows = await db()`with facet_values as (
+      select id as song_id, 'categories' as facet, category as value
+      from songs where status = 'published'
+      union all
+      select id, 'genres', genre from songs where status = 'published'
+      union all
+      select id, 'languages', language from songs where status = 'published'
+      union all
+      select s.id, 'languages', lyric->>'language'
+      from songs s cross join lateral jsonb_array_elements(s.lyrics) lyric
+      where s.status = 'published'
+      union all
+      select s.id, 'tags', tag
+      from songs s cross join lateral unnest(s.tags) tag
+      where s.status = 'published'
+      union all
+      select id, 'years', release_year::text from songs where status = 'published'
+    )
+    select facet, value, count(distinct song_id)::int as total
+    from facet_values
+    where value is not null and value <> ''
+    group by facet, value
+    order by value`;
+    const buckets = {
+      categories: [] as string[],
+      genres: [] as string[],
+      languages: [] as string[],
+      tags: [] as string[],
+      years: [] as string[],
+    };
+    const counts = {
+      categories: {} as Record<string, number>,
+      genres: {} as Record<string, number>,
+      languages: {} as Record<string, number>,
+      tags: {} as Record<string, number>,
+      years: {} as Record<string, number>,
+    };
+    for (const row of rows) {
+      const facet = String(row.facet) as keyof typeof buckets;
+      const value = String(row.value);
+      if (!(facet in buckets)) continue;
+      buckets[facet].push(value);
+      counts[facet][value] = Number(row.total);
+    }
+    buckets.years.sort((a, b) => Number(b) - Number(a));
+    return { ...buckets, counts };
+  }
+
   const songs = await loadSongs();
   const unique = (items: string[]) => [...new Set(items)].sort();
+  const count = (items: string[]) =>
+    items.reduce<Record<string, number>>((counts, item) => {
+      counts[item] = (counts[item] ?? 0) + 1;
+      return counts;
+    }, {});
+  const songLanguages = songs.flatMap((song) => [
+    ...new Set([song.language, ...song.lyrics.map((lyric) => lyric.language)]),
+  ]);
   return {
     categories: unique(songs.map((song) => song.category)),
     genres: unique(songs.map((song) => song.genre)),
-    languages: unique(songs.map((song) => song.language)),
+    languages: unique(songLanguages),
+    tags: unique(songs.flatMap((song) => song.tags)),
     years: unique(songs.map((song) => String(song.releaseYear))).reverse(),
+    counts: {
+      categories: count(songs.map((song) => song.category)),
+      genres: count(songs.map((song) => song.genre)),
+      languages: count(songLanguages),
+      tags: count(songs.flatMap((song) => song.tags)),
+      years: count(songs.map((song) => String(song.releaseYear))),
+    },
   };
 }
 

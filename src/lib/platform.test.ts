@@ -21,8 +21,16 @@ describe("catalog discovery", () => {
     const facets = await getFacets();
     const artist = await listArtistSongs("ada-rivers", 1, 1);
     expect(facets.languages).toContain("Hindi");
+    expect(facets.counts.tags["public domain"]).toBe(2);
     expect(artist?.songs.total).toBeGreaterThan(1);
     expect(artist?.songs.items).toHaveLength(1);
+  });
+
+  it("discovers songs through translated lyric languages and tags", async () => {
+    const hindi = await listSongs({ language: "Hindi" });
+    const publicDomain = await listSongs({ tag: "public domain" });
+    expect(hindi.items.map((song) => song.slug)).toContain("city-lights");
+    expect(publicDomain.total).toBe(2);
   });
 });
 

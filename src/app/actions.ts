@@ -17,11 +17,13 @@ import {
   deleteAIProvider,
   deleteArtist,
   deleteSong,
+  getSongById,
   moderateComment,
   saveAIProvider,
   saveArtist,
   saveSong,
   setAIProviderEnabled,
+  slugify,
   type SongInput,
 } from "@/lib/repository";
 import type { AIProvider, Comment, LyricVersion, PlatformLink } from "@/lib/types";
@@ -150,15 +152,32 @@ export async function saveSongAction(formData: FormData) {
   if (!input.lyrics.length) throw new Error("Add at least one lyric version");
 
   const song = await saveSong(input, String(formData.get("id") || "") || undefined);
-  revalidatePath("/");
+  revalidatePath("/en");
+  revalidatePath(`/en/lyrics/${song.slug}`);
+  revalidatePath(`/en/category/${slugify(song.category)}`);
+  revalidatePath(`/en/genre/${slugify(song.genre)}`);
+  revalidatePath(`/en/language/${slugify(song.language)}`);
+  revalidatePath(`/en/year/${song.releaseYear}`);
+  song.tags.forEach((tag) => revalidatePath(`/en/tag/${slugify(tag)}`));
+  song.artists.forEach((artist) => revalidatePath(`/en/artist/${artist.slug}`));
+  if (song.movie) revalidatePath(`/en/movie/${song.movie.slug}`);
+  revalidatePath("/sitemap.xml");
   revalidatePath("/admin/songs");
   redirect(`/admin/songs?notice=${encodeURIComponent(`${song.title} saved`)}`);
 }
 
 export async function deleteSongAction(formData: FormData) {
   await requireAdmin();
-  await deleteSong(String(formData.get("id")));
-  revalidatePath("/");
+  const id = String(formData.get("id"));
+  const song = await getSongById(id);
+  await deleteSong(id);
+  revalidatePath("/en");
+  if (song) {
+    revalidatePath(`/en/lyrics/${song.slug}`);
+    song.artists.forEach((artist) => revalidatePath(`/en/artist/${artist.slug}`));
+    if (song.movie) revalidatePath(`/en/movie/${song.movie.slug}`);
+  }
+  revalidatePath("/sitemap.xml");
   revalidatePath("/admin/songs");
 }
 
@@ -169,18 +188,21 @@ export async function saveArtistAction(formData: FormData) {
     slug: z.string().trim().max(140),
     bio: z.string().trim().min(10).max(2000),
   }).parse(Object.fromEntries(formData));
-  await saveArtist(
+  const artist = await saveArtist(
     { name: input.name, slug: input.slug, bio: input.bio },
     String(formData.get("id") || "") || undefined,
   );
   revalidatePath("/admin/artists");
-  revalidatePath("/");
+  revalidatePath("/en");
+  revalidatePath(`/en/artist/${artist.slug}`);
+  revalidatePath("/sitemap.xml");
 }
 
 export async function deleteArtistAction(formData: FormData) {
   await requireAdmin();
   await deleteArtist(String(formData.get("id")));
   revalidatePath("/admin/artists");
+  revalidatePath("/sitemap.xml");
 }
 
 const commentSchema = z.object({

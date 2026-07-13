@@ -1,13 +1,24 @@
 import type { MetadataRoute } from "next";
-import { listArtists, listMovies, listSongs } from "@/lib/repository";
+import {
+  getFacets,
+  listArtists,
+  listMovies,
+  listPublishedSongs,
+  slugify,
+} from "@/lib/repository";
+import { getSiteUrl } from "@/lib/site-url";
 import { locales } from "@/lib/types";
 
+export const revalidate = 3600;
+const MIN_INDEXABLE_COLLECTION_SIZE = 2;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const [{ items: songs }, artists, movies] = await Promise.all([
-    listSongs({ limit: 50 }),
+  const base = getSiteUrl();
+  const [songs, artists, movies, facets] = await Promise.all([
+    listPublishedSongs(),
     listArtists(),
     listMovies(),
+    getFacets(),
   ]);
   const entries: MetadataRoute.Sitemap = [];
   for (const locale of locales) {
@@ -15,6 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${base}/${locale}`, changeFrequency: "daily", priority: 1 },
       { url: `${base}/${locale}/about`, changeFrequency: "monthly", priority: 0.5 },
       { url: `${base}/${locale}/contact`, changeFrequency: "yearly", priority: 0.3 },
+      { url: `${base}/${locale}/legal`, changeFrequency: "yearly", priority: 0.3 },
       ...songs.map((song) => ({
         url: `${base}/${locale}/lyrics/${song.slug}`,
         lastModified: new Date(song.updatedAt),
@@ -30,6 +42,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${base}/${locale}/movie/${movie.slug}`,
         changeFrequency: "weekly" as const,
         priority: 0.6,
+      })),
+      ...facets.categories.filter((value) => facets.counts.categories[value] >= MIN_INDEXABLE_COLLECTION_SIZE).map((value) => ({
+        url: `${base}/${locale}/category/${slugify(value)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.65,
+      })),
+      ...facets.genres.filter((value) => facets.counts.genres[value] >= MIN_INDEXABLE_COLLECTION_SIZE).map((value) => ({
+        url: `${base}/${locale}/genre/${slugify(value)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      })),
+      ...facets.languages.filter((value) => facets.counts.languages[value] >= MIN_INDEXABLE_COLLECTION_SIZE).map((value) => ({
+        url: `${base}/${locale}/language/${slugify(value)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.65,
+      })),
+      ...facets.tags.filter((value) => facets.counts.tags[value] >= MIN_INDEXABLE_COLLECTION_SIZE).map((value) => ({
+        url: `${base}/${locale}/tag/${slugify(value)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.5,
+      })),
+      ...facets.years.filter((value) => facets.counts.years[value] >= MIN_INDEXABLE_COLLECTION_SIZE).map((value) => ({
+        url: `${base}/${locale}/year/${value}`,
+        changeFrequency: "monthly" as const,
+        priority: 0.45,
       })),
     );
   }

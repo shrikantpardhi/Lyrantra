@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy, terms and copyright",
   description: "LyricsPro privacy, community, copyright, and takedown principles.",
+  alternates: { canonical: "/en/legal" },
 };
 
 export default function LegalPage() {

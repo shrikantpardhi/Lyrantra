@@ -14,6 +14,7 @@ type Query = {
   category?: string;
   genre?: string;
   language?: string;
+  tag?: string;
   year?: string;
   page?: string;
 };
@@ -33,6 +34,7 @@ export default async function SearchPage({
       category: query.category,
       genre: query.genre,
       language: query.language,
+      tag: query.tag,
       year: query.year,
       page,
       limit: 12,
@@ -74,6 +76,10 @@ export default async function SearchPage({
           <select name="language" defaultValue={query.language || ""} aria-label="Filter by language">
             <option value="">All languages</option>
             {facets.languages.map((value) => <option key={value}>{value}</option>)}
+          </select>
+          <select name="tag" defaultValue={query.tag || ""} aria-label="Filter by tag">
+            <option value="">All tags</option>
+            {facets.tags.map((value) => <option key={value}>{value}</option>)}
           </select>
           <select name="year" defaultValue={query.year || ""} aria-label="Filter by release year">
             <option value="">Any year</option>

@@ -5,6 +5,7 @@ import { submitContactAction } from "@/app/actions";
 export const metadata: Metadata = {
   title: "Contact us",
   description: "Contact the LyricsPro team about corrections, licensing, partnerships, or support.",
+  alternates: { canonical: "/en/contact" },
 };
 
 export default async function ContactPage({

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { Artist, Paginated, Song } from "@/lib/types";
 import { logoutAction } from "@/app/actions";
+import { slugify } from "@/lib/repository";
 
 export function Logo({ admin = false }: { admin?: boolean }) {
   return (
@@ -66,8 +67,8 @@ export function SiteFooter({ locale = "en" }: { locale?: string }) {
         <div>
           <strong>Explore</strong>
           <Link href={`/${locale}/search`}>Browse lyrics</Link>
-          <Link href={`/${locale}/search?category=Movie+songs`}>Movie songs</Link>
-          <Link href={`/${locale}/search?category=New+releases`}>New releases</Link>
+          <Link href={`/${locale}/category/movie-songs`}>Movie songs</Link>
+          <Link href={`/${locale}/category/new-releases`}>New releases</Link>
         </div>
         <div>
           <strong>Company</strong>
@@ -76,11 +77,11 @@ export function SiteFooter({ locale = "en" }: { locale?: string }) {
           <Link href={`/${locale}/legal`}>Privacy & copyright</Link>
         </div>
         <div>
-          <strong>Languages</strong>
-          <Link href="/en">English</Link>
-          <Link href="/hi">हिन्दी</Link>
-          <Link href="/es">Español</Link>
-          <Link href="/ar">العربية</Link>
+          <strong>Lyric languages</strong>
+          <Link href="/en/search?language=English">English</Link>
+          <Link href="/en/search?language=Hindi">हिन्दी</Link>
+          <Link href="/en/search?language=Spanish">Español</Link>
+          <Link href="/en/search?language=Arabic">العربية</Link>
         </div>
       </div>
       <div className="shell footer-bottom">
@@ -100,7 +101,10 @@ export function SongCard({ song, locale = "en" }: { song: Song; locale?: string 
         <small>{song.language}</small>
       </Link>
       <div className="song-card-body">
-        <div className="eyebrow">{song.category} · {song.releaseYear}</div>
+        <div className="eyebrow">
+          <Link href={`/${locale}/category/${slugify(song.category)}`}>{song.category}</Link> ·{" "}
+          <Link href={`/${locale}/year/${song.releaseYear}`}>{song.releaseYear}</Link>
+        </div>
         <h3>
           <Link href={`/${locale}/lyrics/${song.slug}`}>{song.title}</Link>
         </h3>
@@ -114,7 +118,7 @@ export function SongCard({ song, locale = "en" }: { song: Song; locale?: string 
           ))}
         </p>
         <div className="card-meta">
-          <span>{song.genre}</span>
+          <Link href={`/${locale}/genre/${slugify(song.genre)}`}>{song.genre}</Link>
           <span>{Intl.NumberFormat("en", { notation: "compact" }).format(song.views)} reads</span>
         </div>
       </div>

@@ -1,4 +1,6 @@
-export const locales = ["en", "hi", "es", "ar"] as const;
+// UI locales are enabled only after their navigation, metadata, and page copy are translated.
+// Lyrics in any language remain available through language filters and lyric editions.
+export const locales = ["en"] as const;
 export type Locale = (typeof locales)[number];
 
 export type Artist = {
@@ -104,7 +106,10 @@ export type SearchFilters = {
   category?: string;
   genre?: string;
   language?: string;
+  tag?: string;
   year?: string;
+  artistId?: string;
+  movieId?: string;
   page?: number;
   limit?: number;
 };
