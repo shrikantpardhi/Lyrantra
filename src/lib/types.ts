@@ -93,7 +93,7 @@ export type AIRun = {
   id: string;
   providerId?: string;
   status: "queued" | "running" | "needs_review" | "completed" | "failed";
-  source: "manual" | "schedule";
+  source: "manual";
   summary: string;
   candidates: number;
   details?: string;

@@ -253,7 +253,7 @@ const providerSchema = z.object({
   model: z.string().trim().min(2).max(120),
   apiKey: z.string().trim().min(8).max(500),
   baseUrl: z.union([z.literal(""), z.string().url().startsWith("https://")]),
-  dailyLimit: z.coerce.number().int().min(1).max(1000),
+  dailyLimit: z.coerce.number().int().min(1).max(20),
 });
 
 export async function saveProviderAction(formData: FormData) {
@@ -290,6 +290,6 @@ export async function deleteProviderAction(formData: FormData) {
 
 export async function runAIAction() {
   await requireAdmin();
-  await runDiscoveryAgent("manual");
+  await runDiscoveryAgent();
   revalidatePath("/admin/ai");
 }

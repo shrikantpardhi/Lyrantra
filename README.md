@@ -13,7 +13,7 @@ editorial studio, and human-reviewed AI metadata discovery.
 - Moderated comments, sharing, About, Contact, and copyright pages
 - Administrative song, lyric, artist, comment, and AI-provider workflows
 - PostgreSQL schema, full-text index, demo data, Docker support, and database scripts
-- Daily AI metadata research through Gemini, OpenAI, or compatible providers
+- Admin-initiated AI metadata research through Gemini, OpenAI, or compatible providers
 - Canonicals, `hreflang`, sitemaps, robots rules, structured data, and security headers
 
 AI discovery intentionally collects metadata only. It does not fetch or generate copyrighted lyrics,
@@ -58,13 +58,13 @@ NEXT_PUBLIC_SITE_URL=https://lyrics.example.com npm run build
 
 Set all values documented in `.env.example`. In particular:
 
-- Use independent high-entropy values for `AUTH_SECRET`, `ENCRYPTION_KEY`, and `CRON_SECRET`.
+- Use independent high-entropy values for `AUTH_SECRET` and `ENCRYPTION_KEY`.
 - Set `NEXT_PUBLIC_SITE_URL` to the final HTTPS origin before indexing.
 - Replace demonstration content only with licensed, authorized, or public-domain lyrics.
 - Have qualified counsel review territory-specific licenses, privacy terms, and takedown procedures.
 
-`vercel.json` schedules discovery at 05:00 UTC. Other platforms can call
-`GET /api/cron/daily-ingest` with `Authorization: Bearer $CRON_SECRET`.
+AI research runs only when an authenticated administrator clicks **Run discovery** in Studio.
+There is no scheduled or public ingestion endpoint.
 
 ## Architecture
 

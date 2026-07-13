@@ -16,8 +16,8 @@ export default async function AIWorkspace({
   return (
     <>
       <header className="admin-heading">
-        <div><div className="eyebrow">Human-reviewed automation</div><h1>AI workspace</h1><p>Research metadata from official internet sources without importing copyrighted lyrics.</p></div>
-        <form action={runAIAction}><button className="button compact" type="submit" disabled={!providers.some((provider) => provider.enabled)}><Play size={15} /> Run discovery</button></form>
+        <div><div className="eyebrow">Admin-initiated research</div><h1>AI workspace</h1><p>Sign in and start metadata research when you need it. Nothing runs on a schedule.</p></div>
+        <form action={runAIAction}><button className="button compact" type="submit" disabled={!providers.some((provider) => provider.enabled)}><Play size={15} /> Run discovery now</button></form>
       </header>
       {query.notice && <div className="notice">{query.notice}</div>}
       <div className="notice"><ShieldCheck size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
@@ -74,7 +74,7 @@ export default async function AIWorkspace({
                   <option value="custom">Custom compatible API</option>
                 </select>
               </label>
-              <label className="field"><span>Daily candidate limit</span><input name="dailyLimit" type="number" min="1" max="1000" defaultValue="10" /></label>
+              <label className="field"><span>Candidates per run</span><input name="dailyLimit" type="number" min="1" max="20" defaultValue="5" /></label>
               <label className="field full"><span>Model ID</span><input name="model" placeholder="Use a current search-capable model ID" required /></label>
               <label className="field full"><span>API key</span><input name="apiKey" type="password" autoComplete="new-password" required /></label>
               <label className="field full"><span>Custom HTTPS base URL</span><input name="baseUrl" type="url" placeholder="Optional for Gemini and OpenAI" /></label>

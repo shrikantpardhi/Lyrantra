@@ -339,7 +339,7 @@ export const seedAIRuns: AIRun[] = [
   {
     id: "run-demo",
     status: "needs_review",
-    source: "schedule",
+    source: "manual",
     summary: "Found one possible 2026 release; source verification required.",
     candidates: 1,
     details: "Demo run. No copyrighted lyrics were imported.",

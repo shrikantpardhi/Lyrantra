@@ -35,15 +35,17 @@ export function decryptSecret(value: string) {
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
 }
 
-const discoveryPrompt = `You are a music metadata research assistant for LyricsPro.
-Find up to five songs officially released in the last seven days.
+function discoveryPrompt(limit: number) {
+  return `You are a music metadata research assistant for LyricsPro.
+Find up to ${limit} songs officially released in the last seven days.
 Use only official artist, label, movie studio, music platform, or rights-holder sources.
 Do not return lyrics, lyric excerpts, fan transcriptions, rumors, or inferred credits.
 Return a JSON array with: title, artists (array), releaseYear, language, genre,
 movie (optional), officialSourceUrl, and a concise factual description.
 Every item must have one directly supporting officialSourceUrl.`;
+}
 
-function parseDiscovery(text: string): DiscoveryResult[] {
+function parseDiscovery(text: string, limit: number): DiscoveryResult[] {
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
   if (start < 0 || end < start) return [];
@@ -64,10 +66,10 @@ function parseDiscovery(text: string): DiscoveryResult[] {
         typeof candidate.description === "string"
       );
     })
-    .slice(0, 5);
+    .slice(0, limit);
 }
 
-async function callGemini(provider: AIProvider, apiKey: string) {
+async function callGemini(provider: AIProvider, apiKey: string, prompt: string) {
   const base = provider.baseUrl || "https://generativelanguage.googleapis.com/v1beta";
   const response = await fetch(
     `${base}/models/${encodeURIComponent(provider.model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -75,7 +77,7 @@ async function callGemini(provider: AIProvider, apiKey: string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: discoveryPrompt }] }],
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
         tools: [{ google_search: {} }],
         generationConfig: { temperature: 0.1 },
       }),
@@ -89,7 +91,7 @@ async function callGemini(provider: AIProvider, apiKey: string) {
   return payload.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
 }
 
-async function callOpenAI(provider: AIProvider, apiKey: string) {
+async function callOpenAI(provider: AIProvider, apiKey: string, prompt: string) {
   const base = provider.baseUrl || "https://api.openai.com";
   const response = await fetch(`${base}/v1/responses`, {
     method: "POST",
@@ -97,7 +99,7 @@ async function callOpenAI(provider: AIProvider, apiKey: string) {
     body: JSON.stringify({
       model: provider.model,
       tools: [{ type: "web_search" }],
-      input: discoveryPrompt,
+      input: prompt,
     }),
     signal: AbortSignal.timeout(45_000),
   });
@@ -113,7 +115,7 @@ async function callOpenAI(provider: AIProvider, apiKey: string) {
   );
 }
 
-async function callCompatible(provider: AIProvider, apiKey: string) {
+async function callCompatible(provider: AIProvider, apiKey: string, prompt: string) {
   if (!provider.baseUrl) throw new Error("A base URL is required for this provider");
   const response = await fetch(provider.baseUrl, {
     method: "POST",
@@ -124,7 +126,7 @@ async function callCompatible(provider: AIProvider, apiKey: string) {
     },
     body: JSON.stringify({
       model: provider.model,
-      messages: [{ role: "user", content: discoveryPrompt }],
+      messages: [{ role: "user", content: prompt }],
       max_tokens: 3000,
       temperature: 0.1,
     }),
@@ -140,11 +142,11 @@ async function callCompatible(provider: AIProvider, apiKey: string) {
   return payload.choices?.[0]?.message?.content || "";
 }
 
-export async function runDiscoveryAgent(source: AIRun["source"] = "manual") {
+export async function runDiscoveryAgent() {
   const run: AIRun = {
     id: randomUUID(),
     status: "running",
-    source,
+    source: "manual",
     summary: "Researching official music sources…",
     candidates: 0,
     createdAt: new Date().toISOString(),
@@ -156,13 +158,15 @@ export async function runDiscoveryAgent(source: AIRun["source"] = "manual") {
     if (!provider) throw new Error("No enabled AI provider is configured");
     run.providerId = provider.id;
     const apiKey = decryptSecret(provider.encryptedApiKey);
+    const candidateLimit = Math.min(20, Math.max(1, provider.dailyLimit));
+    const prompt = discoveryPrompt(candidateLimit);
     const text =
       provider.provider === "gemini"
-        ? await callGemini(provider, apiKey)
+        ? await callGemini(provider, apiKey, prompt)
         : provider.provider === "openai"
-          ? await callOpenAI(provider, apiKey)
-          : await callCompatible(provider, apiKey);
-    const discoveries = parseDiscovery(text);
+          ? await callOpenAI(provider, apiKey, prompt)
+          : await callCompatible(provider, apiKey, prompt);
+    const discoveries = parseDiscovery(text, candidateLimit);
     run.status = "needs_review";
     run.candidates = discoveries.length;
     run.summary = `Found ${discoveries.length} metadata candidate${discoveries.length === 1 ? "" : "s"} for editorial review.`;
