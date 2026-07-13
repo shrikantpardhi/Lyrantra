@@ -161,9 +161,9 @@ export async function listSongs(
   const limit = Math.min(50, Math.max(1, filters.limit ?? 12));
 
   if (databaseEnabled) {
-    const parameters: unknown[] = [];
+    const parameters: Array<string | number> = [];
     const conditions: string[] = [];
-    const parameter = (value: unknown) => {
+    const parameter = (value: string | number) => {
       parameters.push(value);
       return `$${parameters.length}`;
     };
