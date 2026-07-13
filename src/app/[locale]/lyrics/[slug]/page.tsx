@@ -32,6 +32,7 @@ export async function generateMetadata({
       url: `/${locale}/lyrics/${song.slug}`,
       title: `${song.title} lyrics — ${artists}`,
       description: song.description,
+      images: ["/opengraph-image"],
     },
   };
 }

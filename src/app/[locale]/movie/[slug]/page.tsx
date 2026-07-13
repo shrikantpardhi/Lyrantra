@@ -22,6 +22,7 @@ export async function generateMetadata({
       url: `/${locale}/movie/${slug}`,
       title: `${result.movie.title} songs and lyrics`,
       description: result.movie.description,
+      images: ["/opengraph-image"],
     },
   };
 }

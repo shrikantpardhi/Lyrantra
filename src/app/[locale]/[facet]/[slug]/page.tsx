@@ -77,6 +77,7 @@ export async function generateMetadata({
       url: `/${locale}/${facet}/${slug}${page > 1 ? `?page=${page}` : ""}`,
       title: `${value} song lyrics${suffix}`,
       description: description(facet as Facet, value),
+      images: ["/opengraph-image"],
     },
   };
 }

@@ -26,6 +26,7 @@ export async function generateMetadata({
       url,
       title: `${artist.name} songs and lyrics${suffix}`,
       description: artist.bio,
+      images: ["/opengraph-image"],
     },
   };
 }
