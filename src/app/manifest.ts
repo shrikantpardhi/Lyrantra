@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "LyricsPro",
-    short_name: "LyricsPro",
+    name: "Lyranta",
+    short_name: "Lyranta",
     description: "Multilingual lyrics, translations, credits, and song stories.",
     start_url: "/en",
     display: "standalone",

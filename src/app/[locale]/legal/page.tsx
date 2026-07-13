@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy, terms and copyright",
-  description: "LyricsPro privacy, community, copyright, and takedown principles.",
+  description: "Lyranta privacy, community, copyright, and takedown principles.",
   alternates: { canonical: "/en/legal" },
 };
 
@@ -13,14 +13,14 @@ export default function LegalPage() {
         <div className="eyebrow">Trust center</div>
         <h1>Privacy, terms and copyright</h1>
         <p>
-          This launch version summarizes LyricsPro’s operating principles. Territory-specific
+          This launch version summarizes Lyranta’s operating principles. Territory-specific
           legal terms and licensing agreements must be reviewed by qualified counsel before a
           commercial catalog is published.
         </p>
         <h2>Copyright and licensing</h2>
         <p>
           Full lyrics are published only when they are public domain, provided by an authorized
-          rights holder or licensed catalog partner, or created for LyricsPro. Attribution does
+          rights holder or licensed catalog partner, or created for Lyranta. Attribution does
           not replace permission. AI systems are not permitted to scrape or reconstruct protected lyrics.
         </p>
         <h2>Takedown and correction requests</h2>

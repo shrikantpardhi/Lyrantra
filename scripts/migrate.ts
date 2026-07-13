@@ -13,7 +13,7 @@ async function main() {
   const schema = await readFile(path.join(process.cwd(), "db/schema.sql"), "utf8");
   await sql.unsafe(schema);
   await sql.end();
-  console.log("LyricsPro database schema is up to date.");
+  console.log("Lyranta database schema is up to date.");
 }
 
 main().catch((error) => {

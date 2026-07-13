@@ -4,7 +4,7 @@ import { submitContactAction } from "@/app/actions";
 
 export const metadata: Metadata = {
   title: "Contact us",
-  description: "Contact the LyricsPro team about corrections, licensing, partnerships, or support.",
+  description: "Contact the Lyranta team about corrections, licensing, partnerships, or support.",
   alternates: { canonical: "/en/contact" },
 };
 
@@ -18,7 +18,7 @@ export default async function ContactPage({
     <div className="page">
       <div className="narrow">
         <div className="eyebrow">We are listening</div>
-        <h1 className="search-title">Contact LyricsPro</h1>
+        <h1 className="search-title">Contact Lyranta</h1>
         <p className="muted" style={{ margin: "12px 0 28px", lineHeight: 1.7 }}>
           Send a correction, ask about licensing, propose a partnership, or tell us how we can improve.
         </p>

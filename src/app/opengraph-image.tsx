@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "LyricsPro — Lyrics, translations and song stories";
+export const alt = "Lyranta — Lyrics, translations and song stories";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -36,7 +36,7 @@ export default function OpenGraphImage() {
           >
             ♪
           </div>
-          LyricsPro
+          Lyranta
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           <div style={{ fontFamily: "Georgia, serif", fontSize: 76, lineHeight: 1.05 }}>

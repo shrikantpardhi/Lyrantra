@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      NEXT_PUBLIC_SITE_URL: https://lyricspro.example
+      NEXT_PUBLIC_SITE_URL: https://lyranta.example
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

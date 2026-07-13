@@ -44,9 +44,9 @@ async function resolveFacet(facet: string, slug: string) {
 function description(facet: Facet, value: string) {
   const descriptions = {
     category: `Explore reviewed ${value} song lyrics with translations, artist credits, release information, and official listening links.`,
-    genre: `Discover ${value} lyrics across artists, languages, movies, and release years on LyricsPro.`,
+    genre: `Discover ${value} lyrics across artists, languages, movies, and release years on Lyranta.`,
     language: `Browse ${value} song lyrics, available translations, transliterations, credits, and song stories.`,
-    tag: `Songs and lyrics connected with ${value}, selected from the reviewed LyricsPro catalog.`,
+    tag: `Songs and lyrics connected with ${value}, selected from the reviewed Lyranta catalog.`,
     year: `Browse songs released in ${value}, including lyrics, translations, credits, and official links.`,
   };
   return descriptions[facet];

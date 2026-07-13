@@ -29,11 +29,11 @@ type MemoryStore = {
   runs: AIRun[];
 };
 
-const globalStore = globalThis as unknown as { lyricsproStore?: MemoryStore };
+const globalStore = globalThis as unknown as { lyrantaStore?: MemoryStore };
 
 function memory(): MemoryStore {
-  if (!globalStore.lyricsproStore) {
-    globalStore.lyricsproStore = {
+  if (!globalStore.lyrantaStore) {
+    globalStore.lyrantaStore = {
       songs: structuredClone(seedSongs),
       artists: structuredClone(seedArtists),
       movies: structuredClone(seedMovies),
@@ -43,7 +43,7 @@ function memory(): MemoryStore {
       runs: structuredClone(seedAIRuns),
     };
   }
-  return globalStore.lyricsproStore;
+  return globalStore.lyrantaStore;
 }
 
 function normalize(value: string) {

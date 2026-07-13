@@ -18,7 +18,7 @@ export default async function AdminDashboard() {
   return (
     <>
       <header className="admin-heading">
-        <div><div className="eyebrow">LyricsPro Studio</div><h1>Editorial overview</h1><p>{stats.views.toLocaleString()} catalog reads tracked.</p></div>
+        <div><div className="eyebrow">Lyranta Studio</div><h1>Editorial overview</h1><p>{stats.views.toLocaleString()} catalog reads tracked.</p></div>
         <Link className="button compact" href="/admin/songs/new"><Plus size={16} /> Add song</Link>
       </header>
       <section className="stats-grid">

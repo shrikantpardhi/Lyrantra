@@ -3,7 +3,7 @@ import { CheckCircle2, Globe2, HeartHandshake, ShieldCheck } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "About us",
-  description: "Learn why LyricsPro is building a trusted, multilingual home for song lyrics and music context.",
+  description: "Learn why Lyranta is building a trusted, multilingual home for song lyrics and music context.",
   alternates: { canonical: "/en/about" },
 };
 
@@ -11,10 +11,10 @@ export default function AboutPage() {
   return (
     <div className="page">
       <article className="narrow prose">
-        <div className="eyebrow">About LyricsPro</div>
+        <div className="eyebrow">About Lyranta</div>
         <h1>Music deserves more than a wall of words.</h1>
         <p>
-          LyricsPro is building a trustworthy place to understand songs across languages. We pair
+          Lyranta is building a trustworthy place to understand songs across languages. We pair
           carefully sourced lyrics with translations, transliterations, credits, context, and
           links to the platforms that support artists.
         </p>

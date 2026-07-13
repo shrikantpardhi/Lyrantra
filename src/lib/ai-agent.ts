@@ -18,7 +18,7 @@ function encryptionKey() {
   if (!source && process.env.NODE_ENV === "production") {
     throw new Error("ENCRYPTION_KEY must be configured in production");
   }
-  return createHash("sha256").update(source || "lyricspro-local-encryption-key").digest();
+  return createHash("sha256").update(source || "lyranta-local-encryption-key").digest();
 }
 
 export function encryptSecret(value: string) {
@@ -36,7 +36,7 @@ export function decryptSecret(value: string) {
 }
 
 function discoveryPrompt(limit: number) {
-  return `You are a music metadata research assistant for LyricsPro.
+  return `You are a music metadata research assistant for Lyranta.
 Find up to ${limit} songs officially released in the last seven days.
 Use only official artist, label, movie studio, music platform, or rights-holder sources.
 Do not return lyrics, lyric excerpts, fan transcriptions, rumors, or inferred credits.
