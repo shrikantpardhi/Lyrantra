@@ -381,6 +381,25 @@ export async function listMovies() {
   return loadMovies();
 }
 
+export async function saveMovie(input: Omit<Movie, "id">, id?: string) {
+  const movie: Movie = {
+    ...input,
+    id: id || randomUUID(),
+    slug: input.slug || slugify(input.title),
+  };
+  if (!databaseEnabled) {
+    const index = memory().movies.findIndex((item) => item.id === movie.id);
+    if (index >= 0) memory().movies[index] = movie;
+    else memory().movies.push(movie);
+  } else {
+    await db()`insert into movies (id, slug, title, year, description)
+      values (${movie.id}, ${movie.slug}, ${movie.title}, ${movie.year}, ${movie.description})
+      on conflict (id) do update set slug = excluded.slug, title = excluded.title,
+        year = excluded.year, description = excluded.description, updated_at = now()`;
+  }
+  return movie;
+}
+
 export async function getMovieBySlug(slug: string) {
   const movie = (await loadMovies()).find((item) => item.slug === slug);
   if (!movie) return undefined;
@@ -691,10 +710,8 @@ export async function deleteAIProvider(id: string) {
   }
 }
 
-export async function listAIRuns(): Promise<AIRun[]> {
-  if (!databaseEnabled) return memory().runs;
-  const rows = await db()`select * from ai_runs order by created_at desc limit 50`;
-  return rows.map((row) => ({
+function mapAIRun(row: Record<string, unknown>): AIRun {
+  return {
     id: String(row.id),
     providerId: row.provider_id ? String(row.provider_id) : undefined,
     status: row.status as AIRun["status"],
@@ -702,9 +719,22 @@ export async function listAIRuns(): Promise<AIRun[]> {
     summary: String(row.summary),
     candidates: Number(row.candidates),
     details: row.details ? String(row.details) : undefined,
-    createdAt: new Date(row.created_at).toISOString(),
-    finishedAt: row.finished_at ? new Date(row.finished_at).toISOString() : undefined,
-  }));
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    finishedAt: row.finished_at ? new Date(String(row.finished_at)).toISOString() : undefined,
+  };
+}
+
+export async function listAIRuns(): Promise<AIRun[]> {
+  if (!databaseEnabled) return memory().runs;
+  const rows = await db()`select * from ai_runs order by created_at desc limit 50`;
+  return rows.map((row) => mapAIRun(row as Record<string, unknown>));
+}
+
+export async function getAIRunById(id: string): Promise<AIRun | undefined> {
+  if (!databaseEnabled) return memory().runs.find((run) => run.id === id);
+  const rows = await db()`select * from ai_runs where id = ${id} limit 1`;
+  const row = rows[0] as Record<string, unknown> | undefined;
+  return row ? mapAIRun(row) : undefined;
 }
 
 export async function saveAIRun(run: AIRun) {
@@ -718,8 +748,13 @@ export async function saveAIRun(run: AIRun) {
     ) values (
       ${run.id}, ${run.providerId ?? null}, ${run.status}, ${run.source}, ${run.summary},
       ${run.candidates}, ${run.details ?? null}, ${run.createdAt}, ${run.finishedAt ?? null}
-    ) on conflict (id) do update set status = excluded.status, summary = excluded.summary,
-      candidates = excluded.candidates, details = excluded.details, finished_at = excluded.finished_at`;
+    ) on conflict (id) do update set
+      provider_id = excluded.provider_id,
+      status = excluded.status,
+      summary = excluded.summary,
+      candidates = excluded.candidates,
+      details = excluded.details,
+      finished_at = excluded.finished_at`;
   }
 }
 

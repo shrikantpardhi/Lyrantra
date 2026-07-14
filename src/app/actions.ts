@@ -12,15 +12,30 @@ import {
 } from "@/lib/auth";
 import { encryptSecret, runDiscoveryAgent } from "@/lib/ai-agent";
 import {
+  ensureDescription,
+  finalizeRunStatus,
+  parseRunDetails,
+  serializeRunDetails,
+  toSongInterpretation,
+  toSongLyricPlaceholders,
+  toSongPlatformLinks,
+  type DiscoveryCandidate,
+} from "@/lib/ai-discovery";
+import {
   createComment,
   createContactMessage,
   deleteAIProvider,
   deleteArtist,
   deleteSong,
+  getAIRunById,
   getSongById,
+  listArtists,
+  listMovies,
   moderateComment,
   saveAIProvider,
+  saveAIRun,
   saveArtist,
+  saveMovie,
   saveSong,
   setAIProviderEnabled,
   slugify,
@@ -366,4 +381,147 @@ export async function runAIAction() {
   await requireAdmin();
   await runDiscoveryAgent();
   revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+}
+
+async function resolveArtistIds(candidate: DiscoveryCandidate) {
+  const existing = await listArtists();
+  const ids: string[] = [];
+  const details =
+    candidate.artistDetails.length > 0
+      ? candidate.artistDetails
+      : candidate.artists.map((name) => ({ name, bio: undefined as string | undefined }));
+
+  for (const artist of details) {
+    const match = existing.find((item) => item.name.toLowerCase() === artist.name.toLowerCase());
+    if (match) {
+      ids.push(match.id);
+      continue;
+    }
+    const baseSlug = slugify(artist.name);
+    const slugTaken = existing.some((item) => item.slug === baseSlug);
+    const created = await saveArtist({
+      name: artist.name,
+      slug: slugTaken ? `${baseSlug}-${randomUUID().slice(0, 8)}` : baseSlug,
+      bio:
+        artist.bio?.trim() ||
+        `${artist.name} was added from AI metadata research. Replace this bio before publishing.`,
+    });
+    existing.push(created);
+    ids.push(created.id);
+  }
+  return ids;
+}
+
+async function resolveMovieId(candidate: DiscoveryCandidate) {
+  if (!candidate.movie) return undefined;
+  const movies = await listMovies();
+  const match = movies.find(
+    (movie) =>
+      movie.title.toLowerCase() === candidate.movie!.toLowerCase() &&
+      (candidate.movieYear === undefined || movie.year === candidate.movieYear),
+  );
+  if (match) return match.id;
+
+  const year = candidate.movieYear || candidate.releaseYear;
+  const baseSlug = slugify(candidate.movie);
+  const slugTaken = movies.some((movie) => movie.slug === baseSlug);
+  const created = await saveMovie({
+    title: candidate.movie,
+    slug: slugTaken ? `${baseSlug}-${randomUUID().slice(0, 8)}` : baseSlug,
+    year,
+    description:
+      candidate.movieDescription ||
+      `${candidate.movie} (${year}). Added from AI metadata research.`,
+  });
+  return created.id;
+}
+
+async function persistCandidateDecision(
+  runId: string,
+  index: number,
+  decision: "accepted" | "rejected",
+  songId?: string,
+) {
+  const run = await getAIRunById(runId);
+  if (!run) throw new Error("Research run not found");
+  const candidates = parseRunDetails(run.details);
+  const candidate = candidates[index];
+  if (!candidate) throw new Error("Candidate not found");
+  if (candidate.reviewStatus !== "pending") throw new Error("This candidate was already reviewed");
+
+  candidates[index] = {
+    ...candidate,
+    reviewStatus: decision,
+    songId: decision === "accepted" ? songId : candidate.songId,
+  };
+  const pending = candidates.filter((item) => item.reviewStatus === "pending").length;
+  const accepted = candidates.filter((item) => item.reviewStatus === "accepted").length;
+  const rejected = candidates.filter((item) => item.reviewStatus === "rejected").length;
+  run.details = serializeRunDetails(candidates);
+  run.status = finalizeRunStatus(candidates);
+  run.summary =
+    run.status === "completed"
+      ? `Review complete: ${accepted} accepted, ${rejected} rejected.`
+      : `${pending} candidate${pending === 1 ? "" : "s"} still need review (${accepted} accepted, ${rejected} rejected).`;
+  run.finishedAt = new Date().toISOString();
+  await saveAIRun(run);
+  return { run, candidate: candidates[index] };
+}
+
+export async function acceptAICandidateAction(formData: FormData) {
+  await requireAdmin();
+  const runId = String(formData.get("runId") || "");
+  const index = Number(formData.get("index"));
+  if (!runId || !Number.isInteger(index) || index < 0) throw new Error("Invalid candidate");
+
+  const run = await getAIRunById(runId);
+  if (!run) throw new Error("Research run not found");
+  const candidates = parseRunDetails(run.details);
+  const candidate = candidates[index];
+  if (!candidate) throw new Error("Candidate not found");
+  if (candidate.reviewStatus !== "pending") {
+    redirect(`/admin/ai?notice=${encodeURIComponent("That candidate was already reviewed")}`);
+  }
+
+  const artistIds = await resolveArtistIds(candidate);
+  const movieId = await resolveMovieId(candidate);
+  const description = ensureDescription(candidate);
+  const baseSlug = slugify(candidate.title);
+  const song = await saveSong({
+    title: candidate.title,
+    slug: `${baseSlug}-${Date.now().toString(36)}`,
+    alternateTitle: candidate.alternateTitle,
+    description,
+    releaseYear: candidate.releaseYear,
+    language: candidate.language,
+    category: candidate.category,
+    genre: candidate.genre,
+    tags: candidate.tags,
+    artistIds,
+    movieId,
+    lyrics: toSongLyricPlaceholders(candidate),
+    platformLinks: toSongPlatformLinks(candidate),
+    interpretation: toSongInterpretation(candidate),
+    status: "draft",
+    featured: false,
+  });
+
+  await persistCandidateDecision(runId, index, "accepted", song.id);
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  revalidatePath("/admin/songs");
+  revalidatePath("/admin/artists");
+  redirect(`/admin/songs/${song.id}/edit?notice=${encodeURIComponent(`${song.title} drafted from AI research`)}`);
+}
+
+export async function rejectAICandidateAction(formData: FormData) {
+  await requireAdmin();
+  const runId = String(formData.get("runId") || "");
+  const index = Number(formData.get("index"));
+  if (!runId || !Number.isInteger(index) || index < 0) throw new Error("Invalid candidate");
+  await persistCandidateDecision(runId, index, "rejected");
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  redirect("/admin/ai?notice=Candidate%20rejected");
 }
