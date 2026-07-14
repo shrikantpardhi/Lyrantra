@@ -26,7 +26,13 @@ import {
   slugify,
   type SongInput,
 } from "@/lib/repository";
-import type { AIProvider, Comment, LyricVersion, PlatformLink } from "@/lib/types";
+import type {
+  AIProvider,
+  Comment,
+  LyricVersion,
+  PlatformLink,
+  SongInterpretation,
+} from "@/lib/types";
 
 async function requireAdmin() {
   const session = await getAdminSession();
@@ -59,6 +65,44 @@ const songSchema = z.object({
   category: z.string().trim().min(2).max(80),
   genre: z.string().trim().min(2).max(80),
   status: z.enum(["draft", "review", "published", "archived"]),
+});
+
+const interpretationSectionSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  label: z.string().trim().max(100),
+  meaning: z.string().trim().max(4000),
+}).refine(
+  (section) => (!section.label && !section.meaning) || Boolean(section.label && section.meaning),
+  { message: "Each interpretation section needs both a label and an explanation" },
+);
+
+const interpretationSchema = z.object({
+  status: z.enum(["draft", "review", "published"]),
+  summary: z.string().trim().max(4000),
+  themes: z.array(z.string().trim().min(1).max(80)).max(12),
+  sections: z.array(interpretationSectionSchema).max(20),
+  culturalContext: z.string().trim().max(4000),
+  sourceUrl: z.union([
+    z.literal(""),
+    z.string().trim().url().regex(/^https:\/\//, "The interpretation source must use HTTPS"),
+  ]).optional(),
+  disclaimer: z.string().trim().max(1000),
+}).superRefine((interpretation, context) => {
+  if (interpretation.status !== "published") return;
+  if (interpretation.summary.length < 20) {
+    context.addIssue({
+      code: "custom",
+      path: ["summary"],
+      message: "A published interpretation needs a summary of at least 20 characters",
+    });
+  }
+  if (interpretation.disclaimer.length < 20) {
+    context.addIssue({
+      code: "custom",
+      path: ["disclaimer"],
+      message: "A published interpretation needs an editorial disclaimer",
+    });
+  }
 });
 
 function parseLines(value: string) {
@@ -136,6 +180,35 @@ export async function saveSongAction(formData: FormData) {
     }
   }
 
+  let interpretation: SongInterpretation | undefined;
+  const interpretationJson = String(formData.get("interpretationJson") || "");
+  if (interpretationJson) {
+    let value: unknown;
+    try {
+      value = JSON.parse(interpretationJson);
+    } catch {
+      throw new Error("Meaning and interpretation could not be parsed");
+    }
+    const result = interpretationSchema.safeParse(value);
+    if (!result.success) {
+      throw new Error(result.error.issues.map((issue) => issue.message).join(", "));
+    }
+    const normalized = {
+      ...result.data,
+      themes: [...new Set(result.data.themes.map((theme) => theme.trim()))],
+      sections: result.data.sections.filter((section) => section.label && section.meaning),
+      sourceUrl: result.data.sourceUrl || undefined,
+    };
+    const hasContent = Boolean(
+      normalized.summary ||
+      normalized.themes.length ||
+      normalized.sections.length ||
+      normalized.culturalContext ||
+      normalized.sourceUrl
+    );
+    if (hasContent) interpretation = normalized;
+  }
+
   const input: SongInput = {
     ...parsed.data,
     tags: String(formData.get("tags") || "")
@@ -146,6 +219,7 @@ export async function saveSongAction(formData: FormData) {
     movieId: String(formData.get("movieId") || "") || undefined,
     lyrics,
     platformLinks,
+    interpretation,
     featured: formData.get("featured") === "on",
   };
   if (!input.artistIds.length) throw new Error("Select at least one artist");

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description:
     "Discover accurate song lyrics, translations, transliterations, credits, stories, and official listening links.",
   applicationName: "Lyranta",
-  keywords: ["lyrics", "song lyrics", "translations", "artists", "music"],
+  keywords: ["lyrics", "song lyrics", "song meaning", "translations", "artists", "music"],
   authors: [{ name: "Lyranta Editorial" }],
   creator: "Lyranta",
   openGraph: {

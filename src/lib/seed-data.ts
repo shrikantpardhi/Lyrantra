@@ -1,3 +1,4 @@
+import { DEFAULT_INTERPRETATION_DISCLAIMER } from "@/lib/interpretation";
 import type { AIRun, Artist, Comment, Movie, Song } from "@/lib/types";
 
 export const seedArtists: Artist[] = [
@@ -96,6 +97,29 @@ We come alive under the city lights`,
       { platform: "YouTube Music", url: "https://music.youtube.com/" },
       { platform: "Apple Music", url: "https://music.apple.com/" },
     ],
+    interpretation: {
+      status: "published",
+      summary:
+        "“City Lights” presents connection as an answer to urban isolation. The city first feels anonymous and overwhelming, but a familiar voice transforms that same environment into a place of belonging and possibility.",
+      themes: ["connection", "belonging", "urban isolation", "hope"],
+      sections: [
+        {
+          id: "meaning-city-verse",
+          label: "Verse",
+          meaning:
+            "The opening city imagery emphasizes distance between people. Countless lit windows suggest lives happening close together while still feeling unreachable.",
+        },
+        {
+          id: "meaning-city-chorus",
+          label: "Chorus",
+          meaning:
+            "The chorus shifts from observation to participation. Shared direction matters more than having a fixed destination, turning the lights from background noise into a symbol of hope.",
+        },
+      ],
+      culturalContext:
+        "The song uses the modern city as both a source of loneliness and a setting for reinvention. Its night-drive imagery follows a familiar pop tradition in which movement through illuminated streets represents emotional change.",
+      disclaimer: DEFAULT_INTERPRETATION_DISCLAIMER,
+    },
     status: "published",
     featured: true,
     views: 18420,
@@ -156,6 +180,29 @@ Baadal unhein dohraate rahe`,
       { platform: "JioSaavn", url: "https://www.jiosaavn.com/" },
       { platform: "YouTube Music", url: "https://music.youtube.com/" },
     ],
+    interpretation: {
+      status: "published",
+      summary:
+        "“बारिश के ख़त” treats the first monsoon rain as a messenger that reopens an unfinished relationship. Memories become like letters carried by clouds, giving a voice to feelings the speakers never expressed directly.",
+      themes: ["memory", "unspoken love", "monsoon", "longing"],
+      sections: [
+        {
+          id: "meaning-monsoon-verse",
+          label: "Verse",
+          meaning:
+            "Rain touching the window triggers a private memory. The image of a name being written again suggests that the past has returned without being deliberately invited.",
+        },
+        {
+          id: "meaning-monsoon-chorus",
+          label: "Chorus",
+          meaning:
+            "The recurring rain becomes a series of letters. The clouds repeat words that remained unsaid, so weather acts as the emotional voice the separated pair could not find.",
+        },
+      ],
+      culturalContext:
+        "Monsoon imagery carries a long association with reunion, separation, and romantic longing in South Asian poetry, film, and music. The word “ख़त” means a letter and gives the rain a tangible role as a carrier of memory.",
+      disclaimer: DEFAULT_INTERPRETATION_DISCLAIMER,
+    },
     status: "published",
     featured: true,
     views: 32104,

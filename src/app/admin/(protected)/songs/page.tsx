@@ -12,13 +12,13 @@ export default async function AdminSongs({
   return (
     <>
       <header className="admin-heading">
-        <div><div className="eyebrow">Catalog</div><h1>Songs & lyrics</h1><p>Manage multilingual editions, credits, and publication state.</p></div>
+        <div><div className="eyebrow">Catalog</div><h1>Songs & lyrics</h1><p>Manage multilingual editions, meanings, credits, and publication state.</p></div>
         <Link className="button compact" href="/admin/songs/new"><Plus size={16} /> Add song</Link>
       </header>
       {query.notice && <div className="notice">{query.notice}</div>}
       <section className="panel">
         <table className="admin-table">
-          <thead><tr><th>Title</th><th>Artists</th><th>Taxonomy</th><th>Lyrics</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Title</th><th>Artists</th><th>Taxonomy</th><th>Lyrics</th><th>Meaning</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {songs.items.map((song) => (
               <tr key={song.id}>
@@ -26,6 +26,11 @@ export default async function AdminSongs({
                 <td>{song.artists.map((artist) => artist.name).join(", ")}</td>
                 <td>{song.category}<br /><span className="muted">{song.genre}</span></td>
                 <td>{song.lyrics.length} version{song.lyrics.length === 1 ? "" : "s"}</td>
+                <td>
+                  {song.interpretation
+                    ? <span className={`status ${song.interpretation.status}`}>{song.interpretation.status}</span>
+                    : <span className="muted">Not added</span>}
+                </td>
                 <td><span className={`status ${song.status}`}>{song.status}</span></td>
                 <td>
                   <div className="row-actions">

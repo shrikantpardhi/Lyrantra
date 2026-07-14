@@ -6,7 +6,7 @@ export default async function NewSongPage() {
   return (
     <>
       <header className="admin-heading">
-        <div><div className="eyebrow">New catalog entry</div><h1>Add song lyrics</h1><p>Create a draft, attach every artist, and add language-specific editions.</p></div>
+        <div><div className="eyebrow">New catalog entry</div><h1>Add song lyrics</h1><p>Create a draft, attach every artist, add language-specific editions, and prepare a reviewed interpretation.</p></div>
       </header>
       <SongEditor artists={artists} movies={movies} />
     </>

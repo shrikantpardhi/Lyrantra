@@ -8,6 +8,7 @@ editorial studio, and human-reviewed AI metadata discovery.
 
 - English editorial UI with multilingual lyrics, translations, transliterations, and language filters
 - Song pages with multiple artists and lyric versions
+- Human-reviewed song meanings with themes, section analysis, cultural context, sources, and disclaimers
 - Artist pages with pagination and movie soundtrack pages
 - Full-catalog search with category, genre, language, and year filters
 - Moderated comments, sharing, About, Contact, and copyright pages
@@ -65,6 +66,9 @@ Set all values documented in `.env.example`. In particular:
 
 AI research runs only when an authenticated administrator clicks **Run discovery** in Studio.
 There is no scheduled or public ingestion endpoint.
+
+Song interpretations have an independent draft, review, and published state. Publishing a song does
+not expose its interpretation until an editor separately marks that analysis as published.
 
 ## Architecture
 

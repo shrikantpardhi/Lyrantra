@@ -35,6 +35,7 @@ create table if not exists songs (
   artwork text,
   lyrics jsonb not null default '[]',
   platform_links jsonb not null default '[]',
+  interpretation jsonb,
   status text not null default 'draft' check (status in ('draft', 'review', 'published', 'archived')),
   featured boolean not null default false,
   views bigint not null default 0,
@@ -48,6 +49,8 @@ create table if not exists songs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table songs add column if not exists interpretation jsonb;
 
 create index if not exists songs_search_idx on songs using gin(search_document);
 create index if not exists songs_status_idx on songs(status);

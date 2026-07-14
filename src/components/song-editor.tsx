@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { saveSongAction } from "@/app/actions";
-import type { Artist, LyricVersion, Movie, PlatformLink, Song } from "@/lib/types";
+import { DEFAULT_INTERPRETATION_DISCLAIMER } from "@/lib/interpretation";
+import type {
+  Artist,
+  LyricVersion,
+  Movie,
+  PlatformLink,
+  Song,
+  SongInterpretation,
+} from "@/lib/types";
 
 const emptyLyric = (id = "lyric-new"): LyricVersion => ({
   id,
@@ -12,6 +20,15 @@ const emptyLyric = (id = "lyric-new"): LyricVersion => ({
   type: "original",
   text: "",
   source: "Editorial submission",
+});
+
+const emptyInterpretation = (): SongInterpretation => ({
+  status: "draft",
+  summary: "",
+  themes: [],
+  sections: [],
+  culturalContext: "",
+  disclaimer: DEFAULT_INTERPRETATION_DISCLAIMER,
 });
 
 export function SongEditor({
@@ -25,6 +42,10 @@ export function SongEditor({
 }) {
   const [lyrics, setLyrics] = useState<LyricVersion[]>(song?.lyrics.length ? song.lyrics : [emptyLyric()]);
   const [links, setLinks] = useState<PlatformLink[]>(song?.platformLinks ?? []);
+  const [interpretation, setInterpretation] = useState<SongInterpretation>(
+    song?.interpretation ?? emptyInterpretation(),
+  );
+  const [themes, setThemes] = useState(song?.interpretation?.themes.join(", ") ?? "");
 
   function updateLyric(index: number, patch: Partial<LyricVersion>) {
     setLyrics((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
@@ -34,11 +55,35 @@ export function SongEditor({
     setLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   }
 
+  function updateInterpretation(patch: Partial<SongInterpretation>) {
+    setInterpretation((current) => ({ ...current, ...patch }));
+  }
+
+  function updateInterpretationSection(
+    index: number,
+    patch: Partial<SongInterpretation["sections"][number]>,
+  ) {
+    setInterpretation((current) => ({
+      ...current,
+      sections: current.sections.map((section, sectionIndex) =>
+        sectionIndex === index ? { ...section, ...patch } : section
+      ),
+    }));
+  }
+
   return (
     <form className="form-card form-grid" action={saveSongAction}>
       {song && <input type="hidden" name="id" value={song.id} />}
       <input type="hidden" name="lyricsJson" value={JSON.stringify(lyrics)} />
       <input type="hidden" name="platformLinksJson" value={JSON.stringify(links)} />
+      <input
+        type="hidden"
+        name="interpretationJson"
+        value={JSON.stringify({
+          ...interpretation,
+          themes: themes.split(",").map((theme) => theme.trim()).filter(Boolean),
+        })}
+      />
 
       <label className="field"><span>Song title</span><input name="title" required defaultValue={song?.title} /></label>
       <label className="field"><span>URL slug</span><input name="slug" defaultValue={song?.slug} placeholder="generated-from-title" /></label>
@@ -114,6 +159,124 @@ export function SongEditor({
             </button>
           )}
         </section>
+      ))}
+
+      <div className="field full" style={{ borderTop: "1px solid var(--line)", paddingTop: 24 }}>
+        <div className="admin-heading" style={{ marginBottom: 4 }}>
+          <span>Meaning & interpretation</span>
+          <label className="field" style={{ minWidth: 170 }}>
+            <span>Review status</span>
+            <select
+              value={interpretation.status}
+              onChange={(event) => updateInterpretation({
+                status: event.target.value as SongInterpretation["status"],
+              })}
+            >
+              <option value="draft">Draft</option>
+              <option value="review">Needs review</option>
+              <option value="published">Published</option>
+            </select>
+          </label>
+        </div>
+        <small>
+          Interpretation has its own review state. Only published interpretations appear on public song pages.
+        </small>
+      </div>
+      <section className="panel field full">
+        <div className="form-grid">
+          <label className="field full">
+            <span>Overall meaning</span>
+            <textarea
+              value={interpretation.summary}
+              onChange={(event) => updateInterpretation({ summary: event.target.value })}
+              placeholder="Explain the song’s central idea in original editorial language."
+            />
+          </label>
+          <label className="field full">
+            <span>Themes, comma separated</span>
+            <input
+              value={themes}
+              onChange={(event) => setThemes(event.target.value)}
+              placeholder="longing, belonging, hope"
+            />
+          </label>
+          <label className="field full">
+            <span>Cultural or language context</span>
+            <textarea
+              value={interpretation.culturalContext}
+              onChange={(event) => updateInterpretation({ culturalContext: event.target.value })}
+              placeholder="Explain idioms, symbols, traditions, or translation choices that help readers understand the song."
+            />
+          </label>
+          <label className="field full">
+            <span>Authoritative source URL (optional)</span>
+            <input
+              type="url"
+              value={interpretation.sourceUrl ?? ""}
+              onChange={(event) => updateInterpretation({ sourceUrl: event.target.value || undefined })}
+              placeholder="https://official-artist-or-label.example/interview"
+            />
+            <small>Use an official artist, label, publisher, or other directly supporting HTTPS source.</small>
+          </label>
+          <label className="field full">
+            <span>Editorial disclaimer</span>
+            <textarea
+              value={interpretation.disclaimer}
+              onChange={(event) => updateInterpretation({ disclaimer: event.target.value })}
+            />
+          </label>
+        </div>
+      </section>
+      <div className="field full">
+        <div className="admin-heading" style={{ marginBottom: 4 }}>
+          <span>Section-by-section meaning</span>
+          <button
+            className="button secondary compact"
+            type="button"
+            onClick={() => updateInterpretation({
+              sections: [
+                ...interpretation.sections,
+                { id: crypto.randomUUID(), label: "", meaning: "" },
+              ],
+            })}
+          >
+            <Plus size={14} /> Add section
+          </button>
+        </div>
+      </div>
+      {interpretation.sections.map((section, index) => (
+        <div
+          className="field full"
+          key={section.id}
+          style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", alignItems: "end", gap: 10 }}
+        >
+          <label className="field">
+            <span>Section label</span>
+            <input
+              value={section.label}
+              onChange={(event) => updateInterpretationSection(index, { label: event.target.value })}
+              placeholder="Verse 1"
+            />
+          </label>
+          <label className="field">
+            <span>Meaning</span>
+            <textarea
+              value={section.meaning}
+              onChange={(event) => updateInterpretationSection(index, { meaning: event.target.value })}
+              placeholder="Explain what this section contributes without reproducing the lyrics."
+            />
+          </label>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label={`Remove ${section.label || "interpretation section"}`}
+            onClick={() => updateInterpretation({
+              sections: interpretation.sections.filter((_, sectionIndex) => sectionIndex !== index),
+            })}
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
       ))}
 
       <div className="field full" style={{ borderTop: "1px solid var(--line)", paddingTop: 24 }}>

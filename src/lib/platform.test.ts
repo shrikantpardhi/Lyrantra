@@ -12,9 +12,11 @@ describe("catalog discovery", () => {
     const byTitle = await listSongs({ query: "twinkle" });
     const byLyric = await listSongs({ query: "constellation" });
     const byArtist = await listSongs({ query: "ada rivers" });
+    const byMeaning = await listSongs({ query: "urban isolation" });
     expect(byTitle.items[0]?.slug).toBe("twinkle-twinkle-little-star");
     expect(byLyric.items[0]?.slug).toBe("city-lights");
     expect(byArtist.total).toBeGreaterThanOrEqual(2);
+    expect(byMeaning.items[0]?.slug).toBe("city-lights");
   });
 
   it("exposes stable filters and paginated multi-artist catalogs", async () => {

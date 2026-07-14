@@ -23,6 +23,12 @@ export default function LegalPage() {
           rights holder or licensed catalog partner, or created for Lyranta. Attribution does
           not replace permission. AI systems are not permitted to scrape or reconstruct protected lyrics.
         </p>
+        <h2>Meaning and interpretation</h2>
+        <p>
+          Song meanings are original editorial commentary, not official artist statements unless
+          an authoritative source is explicitly linked. Interpretations are reviewed separately
+          from lyrics and may reflect one reasonable reading rather than a definitive explanation.
+        </p>
         <h2>Takedown and correction requests</h2>
         <p>
           Rights holders can contact us with the work, ownership basis, affected URLs, and contact

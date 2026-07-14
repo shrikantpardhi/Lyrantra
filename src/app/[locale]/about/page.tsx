@@ -15,8 +15,8 @@ export default function AboutPage() {
         <h1>Music deserves more than a wall of words.</h1>
         <p>
           Lyranta is building a trustworthy place to understand songs across languages. We pair
-          carefully sourced lyrics with translations, transliterations, credits, context, and
-          links to the platforms that support artists.
+          carefully sourced lyrics with translations, transliterations, credits, human-reviewed
+          interpretations, and links to the platforms that support artists.
         </p>
         <h2>What we believe</h2>
         <div className="category-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)", marginTop: 18 }}>
@@ -29,7 +29,8 @@ export default function AboutPage() {
         <p>
           We do not treat scraped or generated lyrics as verified content. Every publication must
           have an authorized source, a clear rights basis, and accountable editorial ownership.
-          Corrections are reviewed and retained in a revision history.
+          Interpretations are separately reviewed, clearly labeled as editorial analysis, and may
+          differ from an artist’s intended meaning. Corrections are reviewed by our editors.
         </p>
       </article>
     </div>

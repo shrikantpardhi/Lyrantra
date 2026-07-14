@@ -93,6 +93,9 @@ function rowToSong(
     artwork: row.artwork ? String(row.artwork) : undefined,
     lyrics: (row.lyrics as Song["lyrics"]) ?? [],
     platformLinks: (row.platform_links as Song["platformLinks"]) ?? [],
+    interpretation: row.interpretation
+      ? (row.interpretation as Song["interpretation"])
+      : undefined,
     status: row.status as Song["status"],
     featured: Boolean(row.featured),
     views: Number(row.views ?? 0),
@@ -177,6 +180,10 @@ export async function listSongs(
         s.search_document @@ websearch_to_tsquery('simple', ${searchParameter})
         or s.title ilike ${patternParameter}
         or coalesce(s.alternate_title, '') ilike ${patternParameter}
+        or (
+          coalesce(s.interpretation->>'status', '') = 'published'
+          and coalesce(s.interpretation::text, '') ilike ${patternParameter}
+        )
         or exists (
           select 1 from song_artists sa
           join artists a on a.id = sa.artist_id
@@ -255,6 +262,14 @@ export async function listSongs(
           song.artists.map((artist) => artist.name).join(" "),
           song.movie?.title,
           song.lyrics.map((lyric) => lyric.text).join(" "),
+          song.interpretation?.status === "published"
+            ? [
+                song.interpretation.summary,
+                song.interpretation.themes.join(" "),
+                song.interpretation.sections.map((section) => `${section.label} ${section.meaning}`).join(" "),
+                song.interpretation.culturalContext,
+              ].join(" ")
+            : undefined,
         ]
           .filter(Boolean)
           .join(" "),
@@ -528,6 +543,7 @@ export type SongInput = {
   movieId?: string;
   lyrics: Song["lyrics"];
   platformLinks: Song["platformLinks"];
+  interpretation?: Song["interpretation"];
   status: Song["status"];
   featured?: boolean;
 };
@@ -553,6 +569,7 @@ export async function saveSong(input: SongInput, id?: string) {
     movie: movies.find((movie) => movie.id === input.movieId),
     lyrics: input.lyrics,
     platformLinks: input.platformLinks,
+    interpretation: input.interpretation,
     status: input.status,
     featured: input.featured,
     views: existing?.views ?? 0,
@@ -571,18 +588,21 @@ export async function saveSong(input: SongInput, id?: string) {
   await sql.begin(async (tx) => {
     await tx`insert into songs (
       id, slug, title, alternate_title, description, release_year, language,
-      category, genre, tags, movie_id, lyrics, platform_links, status, featured, views
+      category, genre, tags, movie_id, lyrics, platform_links, interpretation,
+      status, featured, views
     ) values (
       ${song.id}, ${song.slug}, ${song.title}, ${song.alternateTitle ?? null}, ${song.description},
       ${song.releaseYear}, ${song.language}, ${song.category}, ${song.genre}, ${song.tags},
       ${song.movieId ?? null}, ${tx.json(song.lyrics)}, ${tx.json(song.platformLinks)},
+      ${song.interpretation ? tx.json(song.interpretation) : null},
       ${song.status}, ${Boolean(song.featured)}, ${song.views}
     ) on conflict (id) do update set
       slug = excluded.slug, title = excluded.title, alternate_title = excluded.alternate_title,
       description = excluded.description, release_year = excluded.release_year,
       language = excluded.language, category = excluded.category, genre = excluded.genre,
       tags = excluded.tags, movie_id = excluded.movie_id, lyrics = excluded.lyrics,
-      platform_links = excluded.platform_links, status = excluded.status,
+      platform_links = excluded.platform_links, interpretation = excluded.interpretation,
+      status = excluded.status,
       featured = excluded.featured, updated_at = now()`;
     await tx`delete from song_artists where song_id = ${song.id}`;
     for (const [sortOrder, artistId] of song.artistIds.entries()) {

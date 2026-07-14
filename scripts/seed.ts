@@ -25,12 +25,13 @@ async function main() {
       await tx`insert into songs (
         id, slug, title, alternate_title, description, release_year, language,
         category, genre, tags, movie_id, artwork, lyrics, platform_links,
-        status, featured, views, created_at, updated_at
+        interpretation, status, featured, views, created_at, updated_at
       ) values (
         ${song.id}, ${song.slug}, ${song.title}, ${song.alternateTitle ?? null},
         ${song.description}, ${song.releaseYear}, ${song.language}, ${song.category},
         ${song.genre}, ${song.tags}, ${song.movieId ?? null}, ${song.artwork ?? null},
-        ${tx.json(song.lyrics)}, ${tx.json(song.platformLinks)}, ${song.status},
+        ${tx.json(song.lyrics)}, ${tx.json(song.platformLinks)},
+        ${song.interpretation ? tx.json(song.interpretation) : null}, ${song.status},
         ${Boolean(song.featured)}, ${song.views}, ${song.createdAt}, ${song.updatedAt}
       ) on conflict (id) do update set
         slug = excluded.slug, title = excluded.title, alternate_title = excluded.alternate_title,
@@ -38,7 +39,8 @@ async function main() {
         language = excluded.language, category = excluded.category, genre = excluded.genre,
         tags = excluded.tags, movie_id = excluded.movie_id, artwork = excluded.artwork,
         lyrics = excluded.lyrics, platform_links = excluded.platform_links,
-        status = excluded.status, featured = excluded.featured, views = excluded.views,
+        interpretation = excluded.interpretation, status = excluded.status,
+        featured = excluded.featured, views = excluded.views,
         updated_at = excluded.updated_at`;
       await tx`delete from song_artists where song_id = ${song.id}`;
       for (const [sortOrder, artistId] of song.artistIds.entries()) {

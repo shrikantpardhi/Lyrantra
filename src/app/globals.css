@@ -136,6 +136,19 @@ img { max-width: 100%; }
 .tab.active span { color: #fff; }
 .lyrics-text { white-space: pre-wrap; font: 400 19px/2.05 Georgia, serif; color: #27352e; }
 .source-note { color: var(--muted); font-size: 10px; margin-top: 30px; padding-top: 15px; border-top: 1px dashed var(--line); }
+.interpretation-panel { margin-top: 34px; padding: clamp(24px, 5vw, 42px); border: 1px solid #d5e4d9; border-radius: 22px; background: linear-gradient(145deg, #f8fbf6, #eef6ef); color: #3f4e45; }
+.interpretation-panel h2 { color: var(--ink); font: 600 clamp(28px, 4vw, 36px) Georgia, serif; letter-spacing: -.035em; margin: 8px 0 14px; }
+.interpretation-panel h3 { color: var(--ink); font: 600 21px Georgia, serif; margin-bottom: 12px; }
+.interpretation-summary, .interpretation-panel article p, .interpretation-context p { line-height: 1.8; }
+.interpretation-summary { font-size: 16px; color: #34463c; }
+.interpretation-themes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.interpretation-themes span { padding: 7px 10px; border-radius: 999px; background: #fff; border: 1px solid #d5e4d9; color: var(--green); font-size: 11px; font-weight: 750; }
+.interpretation-sections, .interpretation-context { margin-top: 30px; }
+.interpretation-sections { display: grid; gap: 12px; }
+.interpretation-sections article { padding: 18px; border-radius: 14px; background: rgba(255,255,255,.78); border: 1px solid rgba(213,228,217,.9); }
+.interpretation-sections h4 { color: var(--green); font-size: 13px; margin-bottom: 7px; }
+.interpretation-source { display: inline-flex; align-items: center; gap: 6px; margin-top: 24px; color: var(--green); font-size: 12px; font-weight: 800; }
+.interpretation-disclaimer { margin-top: 26px; padding-top: 16px; border-top: 1px dashed #c9d9cd; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .song-description { margin-top: 30px; line-height: 1.75; color: #47544d; }
 .song-description h2, .comments h2 { color: var(--ink); font: 600 27px Georgia, serif; margin-bottom: 12px; }
 .tag-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }

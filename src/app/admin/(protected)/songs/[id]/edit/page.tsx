@@ -13,7 +13,14 @@ export default async function EditSongPage({
   return (
     <>
       <header className="admin-heading">
-        <div><div className="eyebrow">Editing catalog</div><h1>{song.title}</h1><p>Updated {new Date(song.updatedAt).toLocaleString()} · {song.lyrics.length} lyric versions.</p></div>
+        <div>
+          <div className="eyebrow">Editing catalog</div>
+          <h1>{song.title}</h1>
+          <p>
+            Updated {new Date(song.updatedAt).toLocaleString()} · {song.lyrics.length} lyric versions · Meaning{" "}
+            {song.interpretation?.status ?? "not added"}.
+          </p>
+        </div>
       </header>
       <SongEditor song={song} artists={artists} movies={movies} />
     </>

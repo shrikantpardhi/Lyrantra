@@ -5,7 +5,7 @@ import { getFacets, listSongs } from "@/lib/repository";
 
 export const metadata: Metadata = {
   title: "Search and browse lyrics",
-  description: "Search Lyranta by song, artist, movie, lyric text, language, category, genre, or year.",
+  description: "Search Lyranta by song, artist, movie, lyric text, meaning, language, category, genre, or year.",
   robots: { index: false, follow: true },
 };
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calendar, Film, Flag, Music, Tag } from "lucide-react";
+import { Calendar, ExternalLink, Film, Flag, Music, Tag } from "lucide-react";
 import { notFound } from "next/navigation";
 import { submitCommentAction } from "@/app/actions";
 import { LyricsViewer, ShareButton } from "@/components/interactive";
@@ -9,6 +9,7 @@ import {
   PlatformLinks,
   SongGrid,
 } from "@/components/site";
+import { getPublishedInterpretation } from "@/lib/interpretation";
 import { getComments, getSongBySlug, listSongs, slugify } from "@/lib/repository";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -21,17 +22,24 @@ export async function generateMetadata({
   const song = await getSongBySlug(slug);
   if (!song) return {};
   const artists = song.artists.map((artist) => artist.name).join(", ");
+  const interpretation = getPublishedInterpretation(song.interpretation);
+  const titleDetails = [
+    song.lyrics.length > 1 ? "translation & transliteration" : "",
+    interpretation ? "meaning & interpretation" : "",
+  ].filter(Boolean).join(", ");
   return {
-    title: `${song.title} lyrics${song.lyrics.length > 1 ? ", translation & transliteration" : ""}`,
-    description: `${song.title} lyrics by ${artists}. ${song.description}`.slice(0, 158),
+    title: `${song.title} lyrics${titleDetails ? `, ${titleDetails}` : ""}`,
+    description: `${song.title} lyrics by ${artists}. ${
+      interpretation?.summary ?? song.description
+    }`.slice(0, 158),
     alternates: {
       canonical: `/${locale}/lyrics/${song.slug}`,
     },
     openGraph: {
       type: "article",
       url: `/${locale}/lyrics/${song.slug}`,
-      title: `${song.title} lyrics — ${artists}`,
-      description: song.description,
+      title: `${song.title} lyrics${interpretation ? " and meaning" : ""} — ${artists}`,
+      description: interpretation?.summary ?? song.description,
       images: ["/opengraph-image"],
     },
   };
@@ -53,14 +61,17 @@ export default async function LyricsPage({
   ]);
   const relatedSongs = related.items.filter((item) => item.id !== song.id).slice(0, 3);
   const artistNames = song.artists.map((artist) => artist.name).join(", ");
+  const interpretation = getPublishedInterpretation(song.interpretation);
   const siteUrl = getSiteUrl();
+  const canonicalUrl = `${siteUrl}/${locale}/lyrics/${song.slug}`;
   const structuredData = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "MusicRecording",
+        "@id": `${canonicalUrl}#recording`,
         name: song.title,
-        url: `${siteUrl}/${locale}/lyrics/${song.slug}`,
+        url: canonicalUrl,
         inLanguage: song.language,
         dateModified: song.updatedAt,
         byArtist: song.artists.map((artist) => ({
@@ -78,6 +89,22 @@ export default async function LyricsPage({
           })),
         },
       },
+      ...(interpretation ? [{
+        "@type": "Article",
+        "@id": `${canonicalUrl}#meaning`,
+        headline: `${song.title} meaning and interpretation`,
+        description: interpretation.summary,
+        url: `${canonicalUrl}#meaning`,
+        mainEntityOfPage: canonicalUrl,
+        about: { "@id": `${canonicalUrl}#recording` },
+        author: {
+          "@type": "Organization",
+          name: "Lyranta Editorial",
+          url: siteUrl,
+        },
+        dateModified: song.updatedAt,
+        citation: interpretation.sourceUrl,
+      }] : []),
       {
         "@type": "BreadcrumbList",
         itemListElement: [
@@ -133,6 +160,47 @@ export default async function LyricsPage({
             <section className="lyrics-panel" aria-label={`${song.title} lyrics`}>
               <LyricsViewer versions={song.lyrics} />
             </section>
+
+            {interpretation && (
+              <section className="interpretation-panel" id="meaning" aria-labelledby="meaning-heading">
+                <div className="eyebrow">Human-reviewed editorial analysis</div>
+                <h2 id="meaning-heading">{song.title} meaning and interpretation</h2>
+                <p className="interpretation-summary">{interpretation.summary}</p>
+                {interpretation.themes.length > 0 && (
+                  <div className="interpretation-themes" aria-label="Song themes">
+                    {interpretation.themes.map((theme) => <span key={theme}>{theme}</span>)}
+                  </div>
+                )}
+                {interpretation.sections.length > 0 && (
+                  <div className="interpretation-sections">
+                    <h3>Section-by-section meaning</h3>
+                    {interpretation.sections.map((section) => (
+                      <article key={section.id}>
+                        <h4>{section.label}</h4>
+                        <p>{section.meaning}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                {interpretation.culturalContext && (
+                  <div className="interpretation-context">
+                    <h3>Cultural and language context</h3>
+                    <p>{interpretation.culturalContext}</p>
+                  </div>
+                )}
+                {interpretation.sourceUrl && (
+                  <a
+                    className="interpretation-source"
+                    href={interpretation.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Supporting source <ExternalLink size={14} />
+                  </a>
+                )}
+                <p className="interpretation-disclaimer">{interpretation.disclaimer}</p>
+              </section>
+            )}
 
             <section className="song-description">
               <h2>About this song</h2>

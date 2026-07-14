@@ -33,6 +33,22 @@ export type PlatformLink = {
   url: string;
 };
 
+export type InterpretationSection = {
+  id: string;
+  label: string;
+  meaning: string;
+};
+
+export type SongInterpretation = {
+  status: "draft" | "review" | "published";
+  summary: string;
+  themes: string[];
+  sections: InterpretationSection[];
+  culturalContext: string;
+  sourceUrl?: string;
+  disclaimer: string;
+};
+
 export type Song = {
   id: string;
   slug: string;
@@ -51,6 +67,7 @@ export type Song = {
   artwork?: string;
   lyrics: LyricVersion[];
   platformLinks: PlatformLink[];
+  interpretation?: SongInterpretation;
   status: "draft" | "review" | "published" | "archived";
   featured?: boolean;
   views: number;
