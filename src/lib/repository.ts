@@ -327,6 +327,23 @@ export async function getSongBySlug(slug: string) {
   return (await loadSongs()).find((song) => song.slug === slug);
 }
 
+export async function incrementSongViews(songId: string) {
+  if (!databaseEnabled) {
+    const song = memory().songs.find((item) => item.id === songId);
+    if (!song || song.status !== "published") return undefined;
+    song.views += 1;
+    return song.views;
+  }
+  const rows = await db()`
+    update songs
+    set views = views + 1
+    where id = ${songId} and status = 'published'
+    returning views
+  `;
+  const row = rows[0] as { views?: number | string } | undefined;
+  return row ? Number(row.views) : undefined;
+}
+
 export async function getSongById(id: string) {
   if (databaseEnabled) {
     const rows = await db()`select * from songs where id = ${id} limit 1`;

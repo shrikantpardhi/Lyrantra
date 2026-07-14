@@ -23,6 +23,7 @@ export default async function LocaleHome({
     listArtists(),
     getFacets(),
   ]);
+  const featuredArtists = artists.slice(0, 8);
   const siteUrl = getSiteUrl();
 
   return (
@@ -96,7 +97,7 @@ export default async function LocaleHome({
             <div><div className="eyebrow">Voices worth following</div><h2>Featured artists</h2></div>
           </div>
           <div className="artist-grid">
-            {artists.map((artist) => <ArtistCard artist={artist} locale={locale} key={artist.id} />)}
+            {featuredArtists.map((artist) => <ArtistCard artist={artist} locale={locale} key={artist.id} />)}
           </div>
         </div>
       </section>

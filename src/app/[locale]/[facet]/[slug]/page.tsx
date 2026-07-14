@@ -95,7 +95,8 @@ export default async function FacetPage({
   if (!resolved) notFound();
   const { value } = resolved;
   const page = Math.max(1, Number(query.page) || 1);
-  const filters = { page, limit: 12 } as {
+  const pageSize = 8;
+  const filters = { page, limit: pageSize } as {
     page: number;
     limit: number;
     category?: string;
@@ -136,7 +137,7 @@ export default async function FacetPage({
       "@type": "ItemList",
       itemListElement: songs.items.map((song, index) => ({
         "@type": "ListItem",
-        position: (page - 1) * 12 + index + 1,
+        position: (page - 1) * pageSize + index + 1,
         url: `${getSiteUrl()}/${locale}/lyrics/${song.slug}`,
         name: song.title,
       })),

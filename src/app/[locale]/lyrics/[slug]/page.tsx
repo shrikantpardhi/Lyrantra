@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Calendar, ExternalLink, Film, Flag, Music, Tag } from "lucide-react";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { submitCommentAction } from "@/app/actions";
 import { LyricsViewer, ShareButton } from "@/components/interactive";
@@ -10,7 +11,7 @@ import {
   SongGrid,
 } from "@/components/site";
 import { getPublishedInterpretation } from "@/lib/interpretation";
-import { getComments, getSongBySlug, listSongs, slugify } from "@/lib/repository";
+import { getComments, getSongBySlug, incrementSongViews, listSongs, slugify } from "@/lib/repository";
 import { getSiteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({
@@ -53,12 +54,15 @@ export default async function LyricsPage({
   searchParams: Promise<{ comment?: string }>;
 }) {
   const [{ locale, slug }, query] = await Promise.all([params, searchParams]);
+  await connection();
   const song = await getSongBySlug(slug);
   if (!song) notFound();
-  const [comments, related] = await Promise.all([
+  const [comments, related, views] = await Promise.all([
     getComments(song.id),
     listSongs({ genre: song.genre, limit: 4 }),
+    incrementSongViews(song.id),
   ]);
+  const viewCount = views ?? song.views;
   const relatedSongs = related.items.filter((item) => item.id !== song.id).slice(0, 3);
   const artistNames = song.artists.map((artist) => artist.name).join(", ");
   const interpretation = getPublishedInterpretation(song.interpretation);
@@ -249,7 +253,7 @@ export default async function LyricsPage({
                 <div><dt>Genre</dt><dd>{song.genre}</dd></div>
                 <div><dt>Released</dt><dd>{song.releaseYear}</dd></div>
                 {song.movie && <div><dt>Movie</dt><dd><Link href={`/${locale}/movie/${song.movie.slug}`}>{song.movie.title}</Link></dd></div>}
-                <div><dt>Reads</dt><dd>{song.views.toLocaleString()}</dd></div>
+                <div><dt>Reads</dt><dd>{viewCount.toLocaleString()}</dd></div>
               </dl>
             </section>
             <section className="aside-card">

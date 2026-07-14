@@ -37,7 +37,7 @@ export default async function SearchPage({
       tag: query.tag,
       year: query.year,
       page,
-      limit: 12,
+      limit: 8,
     }),
     getFacets(),
   ]);
