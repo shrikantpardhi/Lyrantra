@@ -724,9 +724,10 @@ function mapAIRun(row: Record<string, unknown>): AIRun {
   };
 }
 
-export async function listAIRuns(): Promise<AIRun[]> {
-  if (!databaseEnabled) return memory().runs;
-  const rows = await db()`select * from ai_runs order by created_at desc limit 50`;
+export async function listAIRuns(limit = 10): Promise<AIRun[]> {
+  const capped = Math.min(50, Math.max(1, limit));
+  if (!databaseEnabled) return memory().runs.slice(0, capped);
+  const rows = await db()`select * from ai_runs order by created_at desc limit ${capped}`;
   return rows.map((row) => mapAIRun(row as Record<string, unknown>));
 }
 

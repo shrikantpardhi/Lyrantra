@@ -8,18 +8,26 @@ import {
   saveProviderAction,
   toggleProviderAction,
 } from "@/app/actions";
+import { AIRunPoller } from "@/components/ai-run-poller";
 import { PendingSubmitButton } from "@/components/ui-feedback";
 import { parseRunDetails } from "@/lib/ai-discovery";
 import { listAIProviders, listAIRuns } from "@/lib/repository";
 
+export const maxDuration = 300;
+
+function runStatusLabel(status: string) {
+  return status.replaceAll("_", " ");
+}
+
 export default async function AIWorkspace() {
-  const [providers, runs] = await Promise.all([listAIProviders(), listAIRuns()]);
+  const [providers, runs] = await Promise.all([listAIProviders(), listAIRuns(10)]);
   const reviewQueue = runs.flatMap((run) =>
     parseRunDetails(run.details)
       .map((candidate, index) => ({ run, candidate, index }))
       .filter(({ candidate }) => candidate.reviewStatus === "pending"),
   );
   const canRun = providers.some((provider) => provider.enabled);
+  const hasActiveRun = runs.some((run) => run.status === "queued" || run.status === "running");
 
   return (
     <>
@@ -27,19 +35,20 @@ export default async function AIWorkspace() {
         <div>
           <div className="eyebrow">Admin-initiated research</div>
           <h1>AI workspace</h1>
-          <p>Sign in and start metadata research when you need it. Nothing runs on a schedule.</p>
+          <p>Discovery runs in the background so Studio stays responsive.</p>
         </div>
         <form action={runAIAction}>
           <PendingSubmitButton
             className="button compact"
             type="submit"
-            disabled={!canRun}
-            pendingLabel="Researching…"
+            disabled={!canRun || hasActiveRun}
+            pendingLabel="Starting…"
           >
             <Play size={15} /> Run discovery now
           </PendingSubmitButton>
         </form>
       </header>
+      <AIRunPoller active={hasActiveRun} />
       <div className="notice">
         <ShieldCheck size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
         AI returns full catalog metadata, artist bios, links, and a meaning draft for review. It never
@@ -134,6 +143,9 @@ export default async function AIWorkspace() {
       <div className="admin-grid">
         <section className="panel">
           <h2>Research runs</h2>
+          <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 14 }}>
+            Latest 10 only. Status updates to failed, needs review, or completed when the background job finishes.
+          </p>
           {runs.map((run) => {
             const candidates = parseRunDetails(run.details);
             return (
@@ -141,7 +153,10 @@ export default async function AIWorkspace() {
                 <span style={{ minWidth: 0 }}>
                   <strong>{run.summary}</strong>
                   <small>
-                    {new Date(run.createdAt).toLocaleString()} · {run.source} · {run.candidates} candidates
+                    {new Date(run.createdAt).toLocaleString()}
+                    {run.finishedAt ? ` · finished ${new Date(run.finishedAt).toLocaleString()}` : ""}
+                    {" · "}
+                    {run.source} · {run.candidates} candidates
                   </small>
                   {candidates.length > 0 && (
                     <ul style={{ marginTop: 12, paddingLeft: 18, fontSize: 12, lineHeight: 1.7 }}>
@@ -168,7 +183,7 @@ export default async function AIWorkspace() {
                     <pre className="code-block" style={{ marginTop: 12 }}>{run.details}</pre>
                   )}
                 </span>
-                <span className={`status ${run.status}`}>{run.status.replace("_", " ")}</span>
+                <span className={`status ${run.status}`}>{runStatusLabel(run.status)}</span>
               </article>
             );
           })}

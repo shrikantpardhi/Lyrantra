@@ -10,7 +10,7 @@ import {
   credentialsAreValid,
   getAdminSession,
 } from "@/lib/auth";
-import { encryptSecret, runDiscoveryAgent } from "@/lib/ai-agent";
+import { encryptSecret, enqueueDiscoveryRun, executeDiscoveryRun } from "@/lib/ai-agent";
 import {
   ensureDescription,
   finalizeRunStatus,
@@ -388,10 +388,18 @@ export async function deleteProviderAction(formData: FormData) {
 
 export async function runAIAction() {
   await requireAdmin();
-  const run = await runDiscoveryAgent();
+  const { after } = await import("next/server");
+  const run = await enqueueDiscoveryRun();
+  after(async () => {
+    try {
+      await executeDiscoveryRun(run.id);
+    } catch {
+      // executeDiscoveryRun already persists failure state when possible
+    }
+  });
   revalidatePath("/admin/ai");
   revalidatePath("/admin");
-  redirect(`/admin/ai?notice=${encodeURIComponent(run.summary)}`);
+  redirect("/admin/ai?notice=Research%20started%20in%20the%20background");
 }
 
 async function resolveArtistIds(candidate: DiscoveryCandidate) {

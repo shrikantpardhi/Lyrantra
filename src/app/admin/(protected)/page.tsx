@@ -6,7 +6,7 @@ export default async function AdminDashboard() {
   const [stats, songs, runs] = await Promise.all([
     getDashboardStats(),
     listSongs({ limit: 6 }, true),
-    listAIRuns(),
+    listAIRuns(3),
   ]);
   const cards = [
     { label: "Total songs", value: stats.songs.toLocaleString(), icon: BookOpenText },
