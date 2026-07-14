@@ -47,6 +47,7 @@ export type DiscoveryCandidate = {
     language: string;
     languageCode: string;
     type: "original" | "translation" | "transliteration";
+    text: string;
     sourceNote: string;
   }>;
   lyricSourceNote?: string;
@@ -123,11 +124,16 @@ function asArtists(value: unknown): { names: string[]; details: DiscoveryArtist[
   };
 }
 
+function asLyricText(value: unknown) {
+  return asTrimmedString(value).slice(0, 50_000);
+}
+
 function asLyricEditions(
   value: unknown,
   language: string,
   languageCode: string,
   lyricSourceNote: string,
+  fallbackLyrics?: unknown,
 ) {
   const editions: DiscoveryCandidate["lyricEditions"] = [];
   if (Array.isArray(value)) {
@@ -147,7 +153,37 @@ function asLyricEditions(
         language: editionLanguage,
         languageCode: editionCode,
         type,
+        text: asLyricText(row.text),
         sourceNote,
+      });
+    }
+  }
+  if (Array.isArray(fallbackLyrics)) {
+    for (const item of fallbackLyrics) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const editionLanguage = asTrimmedString(row.language) || language;
+      const text = asLyricText(row.text);
+      if (!text) continue;
+      const typeValue = asTrimmedString(row.type);
+      const editionType =
+        typeValue === "translation" || typeValue === "transliteration" ? typeValue : "original";
+      const existing = editions.find(
+        (edition) =>
+          edition.language.toLowerCase() === editionLanguage.toLowerCase() &&
+          edition.type === editionType,
+      );
+      if (existing) {
+        if (!existing.text) existing.text = text;
+        continue;
+      }
+      editions.push({
+        language: editionLanguage,
+        languageCode: asTrimmedString(row.languageCode) || guessLanguageCode(editionLanguage),
+        type: editionType,
+        text,
+        sourceNote:
+          asTrimmedString(row.sourceNote) || asTrimmedString(row.source) || lyricSourceNote,
       });
     }
   }
@@ -156,6 +192,7 @@ function asLyricEditions(
       language,
       languageCode,
       type: "original",
+      text: "",
       sourceNote: lyricSourceNote,
     });
   }
@@ -266,6 +303,7 @@ function normalizeCandidate(item: unknown): DiscoveryCandidate | undefined {
     language,
     languageCode,
     lyricSourceNote,
+    candidate.lyrics,
   );
   const reviewStatus =
     candidate.reviewStatus === "accepted" || candidate.reviewStatus === "rejected"
@@ -459,8 +497,8 @@ export function toSongLyricPlaceholders(candidate: DiscoveryCandidate) {
     language: edition.language,
     languageCode: edition.languageCode,
     type: edition.type,
-    text: "Lyrics pending editorial sourcing. Do not publish until authorized lyric text is added.",
-    source: edition.sourceNote || candidate.lyricSourceNote || "AI metadata discovery placeholder",
+    text: edition.text,
+    source: edition.sourceNote || candidate.lyricSourceNote || "AI discovery",
   }));
 }
 
@@ -480,17 +518,18 @@ export const DISCOVERY_JSON_SCHEMA = `{
   "officialSourceUrl": "https://...",
   "description": "factual editorial blurb, at least 2-3 sentences",
   "platformLinks": [{ "platform": "Spotify", "url": "https://..." }],
-  "lyricSourceNote": "publisher / label / authorized source for lyrics later",
+  "lyricSourceNote": "where the lyric text was found",
   "lyricEditions": [
     {
       "language": "English",
       "languageCode": "en",
       "type": "original | translation | transliteration",
-      "sourceNote": "where authorized text for this edition should come from"
+      "text": "REQUIRED — full lyric text for this edition, preserve line breaks with \\n",
+      "sourceNote": "official page or platform where this text was found"
     }
   ],
   "interpretation": {
-    "summary": "required overall meaning draft (no lyric quotes), 3-6 sentences",
+    "summary": "required overall meaning draft, 3-6 sentences",
     "themes": ["longing", "hope", "identity"],
     "culturalContext": "required language, cultural, or release context",
     "sections": [

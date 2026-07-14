@@ -79,9 +79,9 @@ Rules:
 - Fill every field you can verify from official/public sources.
 - artists must include short bios when available.
 - platformLinks should include Spotify, Apple Music, YouTube Music, or official pages when available (HTTPS only).
-- interpretation is REQUIRED: rich summary, at least 3 themes, culturalContext, and at least 3 section meanings (Verse/Chorus/Bridge style) without quoting lyrics.
-- lyricEditions describe which language versions editors should prepare later, with source notes — never include lyric text, excerpts, reconstructions, or fan transcriptions.
-- Do NOT return lyrics, lyric excerpts, paraphrased verses, rumors, or inferred private credits.
+- lyricEditions is REQUIRED: include the complete lyric text for each language edition in the "text" field. Preserve verse/chorus structure with newline characters.
+- Include original-language lyrics plus any widely available translations or transliterations as separate lyricEditions entries when you can find them.
+- interpretation is REQUIRED: rich summary, at least 3 themes, culturalContext, and at least 3 section meanings (Verse/Chorus/Bridge style).
 - Every item needs one directly supporting officialSourceUrl.
 - Prefer results that match the research brief filters when they conflict with generic recent hits.
 - Respond with a JSON array only.`;
@@ -156,7 +156,7 @@ async function callCompatible(provider: AIProvider, apiKey: string, prompt: stri
     body: JSON.stringify({
       model: provider.model,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 3000,
+      max_tokens: 16000,
       temperature: 0.1,
     }),
     signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),

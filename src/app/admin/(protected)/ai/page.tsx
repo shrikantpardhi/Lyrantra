@@ -42,8 +42,8 @@ export default async function AIWorkspace() {
       <AIRunPoller active={hasActiveRun} />
       <div className="notice">
         <ShieldCheck size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
-        AI returns full catalog metadata, artist bios, links, and a meaning draft for review. It never
-        returns lyric text — editors paste authorized lyrics before publish.
+        AI returns full catalog metadata, lyrics, artist bios, links, and a meaning draft for review.
+        Accept or reject each candidate — edit the draft before publishing if needed.
       </div>
 
       <section className="panel" style={{ marginTop: 18 }}>
@@ -171,8 +171,31 @@ export default async function AIWorkspace() {
                     )}
                   </div>
                 )}
+                {candidate.lyricEditions.some((edition) => edition.text) && (
+                  <div style={{ marginTop: 12 }}>
+                    {candidate.lyricEditions.map((edition) => (
+                      <div key={`${edition.language}-${edition.type}`} style={{ marginBottom: 12 }}>
+                        <p style={{ fontSize: 12, marginBottom: 6 }}>
+                          <strong>
+                            {edition.language} ({edition.type})
+                          </strong>
+                        </p>
+                        {edition.text ? (
+                          <pre
+                            className="code-block"
+                            style={{ fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", maxHeight: 280, overflow: "auto" }}
+                          >
+                            {edition.text}
+                          </pre>
+                        ) : (
+                          <p className="muted" style={{ fontSize: 12 }}>No lyric text returned for this edition.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <p className="muted" style={{ marginTop: 10, fontSize: 11 }}>
-                  Lyric editions planned:{" "}
+                  Lyric editions:{" "}
                   {candidate.lyricEditions.map((edition) => `${edition.language} (${edition.type})`).join(", ")}
                   {" · "}
                   Run {new Date(run.createdAt).toLocaleString()}
