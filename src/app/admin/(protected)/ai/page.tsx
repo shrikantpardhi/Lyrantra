@@ -7,6 +7,7 @@ import {
   toggleProviderAction,
 } from "@/app/actions";
 import { AIReviewTable, type ReviewRow } from "@/components/ai-review-table";
+import { AIRunsTable, type AIRunRow } from "@/components/ai-runs-table";
 import { AIRunPoller } from "@/components/ai-run-poller";
 import { PendingSubmitButton } from "@/components/ui-feedback";
 import {
@@ -24,10 +25,6 @@ export const maxDuration = 300;
 const REVIEW_PAGE_SIZE = 12;
 
 type ReviewFilter = "all" | "new" | "catalog" | "missing";
-
-function runStatusLabel(status: string) {
-  return status.replaceAll("_", " ");
-}
 
 function AdminPagination({
   page,
@@ -285,60 +282,38 @@ export default async function AIWorkspace({
         <section className="panel">
           <h2>Research runs</h2>
           <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 14 }}>
-            Latest runs. Failed runs keep a raw provider snippet for debugging.
+            Delete finished or selected runs when you no longer need their review history. Active
+            queued/running jobs cannot be deleted.
           </p>
-          {runs.slice(0, 10).map((run) => {
-            const { candidates, criteria, rawResponse } = parseRunPayload(run.details);
-            const brief = formatDiscoveryCriteria(criteria);
-            return (
-              <article className="provider-card" key={run.id} style={{ alignItems: "flex-start" }}>
-                <span style={{ minWidth: 0 }}>
-                  <strong>{run.summary}</strong>
-                  <small>
-                    {new Date(run.createdAt).toLocaleString()}
-                    {run.finishedAt ? ` · finished ${new Date(run.finishedAt).toLocaleString()}` : ""}
-                    {" · "}
-                    {run.source} · {run.candidates} candidates
-                  </small>
-                  {brief && (
-                    <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                      Brief: {brief}
-                    </p>
-                  )}
-                  {candidates.length > 0 && (
-                    <ul style={{ marginTop: 12, paddingLeft: 18, fontSize: 12, lineHeight: 1.7 }}>
-                      {candidates.map((candidate, index) => (
-                        <li key={`${run.id}-list-${index}`}>
-                          {candidate.title}
-                          {" · "}
-                          <span
-                            className={`status ${candidate.reviewStatus === "pending" ? "needs_review" : candidate.reviewStatus === "accepted" ? "completed" : "failed"}`}
-                          >
-                            {candidate.reviewStatus}
-                          </span>
-                          {candidate.songId && (
-                            <>
-                              {" "}
-                              <Link className="text-link" href={`/admin/songs/${candidate.songId}/edit`}>
-                                Open draft
-                              </Link>
-                            </>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {run.status === "failed" && rawResponse && (
-                    <pre className="code-block" style={{ marginTop: 12 }}>
-                      {rawResponse}
-                    </pre>
-                  )}
-                </span>
-                <span className={`status ${run.status}`}>{runStatusLabel(run.status)}</span>
-              </article>
-            );
-          })}
-          {!runs.length && <p className="muted">No research runs yet.</p>}
+          {runs.length ? (
+            <AIRunsTable
+              finishedCount={
+                runs.filter((run) => run.status === "completed" || run.status === "failed").length
+              }
+              rows={runs.slice(0, 20).map((run): AIRunRow => {
+                const { candidates, criteria, rawResponse } = parseRunPayload(run.details);
+                return {
+                  id: run.id,
+                  summary: run.summary,
+                  status: run.status,
+                  source: run.source,
+                  candidates: run.candidates,
+                  createdAt: run.createdAt,
+                  finishedAt: run.finishedAt,
+                  brief: formatDiscoveryCriteria(criteria) || undefined,
+                  candidateLines: candidates.map((candidate) => ({
+                    title: candidate.title,
+                    reviewStatus: candidate.reviewStatus,
+                    songId: candidate.songId,
+                  })),
+                  rawResponse,
+                  deletable: run.status !== "queued" && run.status !== "running",
+                };
+              })}
+            />
+          ) : (
+            <p className="muted">No research runs yet.</p>
+          )}
         </section>
         <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
           <section className="panel">

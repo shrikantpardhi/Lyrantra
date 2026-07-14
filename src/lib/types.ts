@@ -127,6 +127,7 @@ export type SearchFilters = {
   year?: string;
   artistId?: string;
   movieId?: string;
+  status?: Song["status"];
   page?: number;
   limit?: number;
 };

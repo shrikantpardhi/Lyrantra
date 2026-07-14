@@ -32,6 +32,8 @@ import {
   createComment,
   createContactMessage,
   deleteAIProvider,
+  deleteAIRun,
+  deleteAIRuns,
   deleteArtist,
   deleteSong,
   getAIRunById,
@@ -394,6 +396,56 @@ export async function deleteProviderAction(formData: FormData) {
   await deleteAIProvider(String(formData.get("id")));
   revalidatePath("/admin/ai");
   redirect("/admin/ai?notice=Provider%20removed");
+}
+
+export async function deleteAIRunAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") || "");
+  if (!id) throw new Error("Research run not found");
+  const run = await getAIRunById(id);
+  if (run && (run.status === "queued" || run.status === "running")) {
+    redirect("/admin/ai?notice=Wait%20for%20the%20active%20run%20to%20finish%20before%20deleting");
+  }
+  await deleteAIRun(id);
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  redirect("/admin/ai?notice=Research%20run%20deleted");
+}
+
+export async function deleteFinishedAIRunsAction() {
+  await requireAdmin();
+  const runs = await listAIRuns(200);
+  const finishedIds = runs
+    .filter((run) => run.status === "completed" || run.status === "failed")
+    .map((run) => run.id);
+  const deleted = await deleteAIRuns(finishedIds);
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  redirect(
+    `/admin/ai?notice=${encodeURIComponent(
+      deleted ? `Deleted ${deleted} finished run${deleted === 1 ? "" : "s"}` : "No finished runs to delete",
+    )}`,
+  );
+}
+
+export async function bulkDeleteAIRunsAction(formData: FormData) {
+  await requireAdmin();
+  const ids = formData.getAll("runId").map(String).filter(Boolean);
+  const runs = await listAIRuns(200);
+  const active = new Set(
+    runs.filter((run) => run.status === "queued" || run.status === "running").map((run) => run.id),
+  );
+  const deletable = ids.filter((id) => !active.has(id));
+  const deleted = await deleteAIRuns(deletable);
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  redirect(
+    `/admin/ai?notice=${encodeURIComponent(
+      deleted
+        ? `Deleted ${deleted} research run${deleted === 1 ? "" : "s"}`
+        : "No deletable runs selected (active runs cannot be deleted)",
+    )}`,
+  );
 }
 
 export async function runAIAction(formData: FormData) {

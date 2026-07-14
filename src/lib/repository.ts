@@ -177,6 +177,7 @@ export async function listSongs(
     };
 
     if (!includeUnpublished) conditions.push("s.status = 'published'");
+    if (filters.status) conditions.push(`s.status = ${parameter(filters.status)}`);
     let searchParameter: string | undefined;
     if (filters.query?.trim()) {
       searchParameter = parameter(filters.query.trim());
@@ -283,6 +284,7 @@ export async function listSongs(
   }
   if (filters.category) songs = songs.filter((song) => song.category === filters.category);
   if (filters.genre) songs = songs.filter((song) => song.genre === filters.genre);
+  if (filters.status) songs = songs.filter((song) => song.status === filters.status);
   if (filters.language) {
     songs = songs.filter(
       (song) =>
@@ -335,6 +337,53 @@ export async function getSongById(id: string) {
 
 export async function listArtists() {
   return loadArtists();
+}
+
+export async function listArtistsPaginated(filters: {
+  query?: string;
+  page?: number;
+  limit?: number;
+} = {}): Promise<Paginated<Artist & { songCount: number }>> {
+  const page = Math.max(1, filters.page ?? 1);
+  const limit = Math.min(50, Math.max(1, filters.limit ?? 25));
+  const query = filters.query?.trim().toLocaleLowerCase() || "";
+  const [artists, songs] = await Promise.all([loadArtists(), loadSongs(true)]);
+  let filtered = artists;
+  if (query) {
+    filtered = artists.filter(
+      (artist) =>
+        artist.name.toLocaleLowerCase().includes(query) ||
+        artist.slug.toLocaleLowerCase().includes(query) ||
+        artist.bio.toLocaleLowerCase().includes(query),
+    );
+  }
+  filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  const total = filtered.length;
+  const items = filtered.slice((page - 1) * limit, page * limit).map((artist) => ({
+    ...artist,
+    songCount: songs.filter((song) => song.artistIds.includes(artist.id)).length,
+  }));
+  return {
+    items,
+    total,
+    page,
+    pages: Math.max(1, Math.ceil(total / limit)),
+  };
+}
+
+export async function getAdminSongFilterOptions() {
+  const songs = await loadSongs(true);
+  return {
+    categories: [...new Set(songs.map((song) => song.category).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    ),
+    genres: [...new Set(songs.map((song) => song.genre).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    ),
+    languages: [...new Set(songs.map((song) => song.language).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    ),
+  };
 }
 
 export async function saveArtist(input: Omit<Artist, "id">, id?: string) {
@@ -736,6 +785,26 @@ export async function getAIRunById(id: string): Promise<AIRun | undefined> {
   const rows = await db()`select * from ai_runs where id = ${id} limit 1`;
   const row = rows[0] as Record<string, unknown> | undefined;
   return row ? mapAIRun(row) : undefined;
+}
+
+export async function deleteAIRun(id: string) {
+  if (!databaseEnabled) {
+    memory().runs = memory().runs.filter((run) => run.id !== id);
+    return;
+  }
+  await db()`delete from ai_runs where id = ${id}`;
+}
+
+export async function deleteAIRuns(ids: string[]) {
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (!unique.length) return 0;
+  if (!databaseEnabled) {
+    const before = memory().runs.length;
+    memory().runs = memory().runs.filter((run) => !unique.includes(run.id));
+    return before - memory().runs.length;
+  }
+  await db()`delete from ai_runs where id = any(${unique})`;
+  return unique.length;
 }
 
 export async function saveAIRun(run: AIRun) {
