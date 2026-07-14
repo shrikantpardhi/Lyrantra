@@ -1,5 +1,6 @@
 import { Save, Trash2, UserPlus } from "lucide-react";
 import { deleteArtistAction, saveArtistAction } from "@/app/actions";
+import { PendingSubmitButton } from "@/components/ui-feedback";
 import { listArtists } from "@/lib/repository";
 
 export default async function AdminArtists() {
@@ -20,7 +21,7 @@ export default async function AdminArtists() {
                 <label className="field"><span>Slug</span><input name="slug" defaultValue={artist.slug} required /></label>
                 <label className="field full"><span>Biography</span><textarea name="bio" defaultValue={artist.bio} required /></label>
                 <div className="row-actions">
-                  <button type="submit"><Save size={13} /> Save</button>
+                  <PendingSubmitButton type="submit" pendingLabel="Saving…"><Save size={13} /> Save</PendingSubmitButton>
                 </div>
               </form>
             ))}
@@ -33,7 +34,9 @@ export default async function AdminArtists() {
               <label className="field full"><span>Name</span><input name="name" required /></label>
               <label className="field full"><span>Slug (optional)</span><input name="slug" /></label>
               <label className="field full"><span>Biography</span><textarea name="bio" required minLength={10} /></label>
-              <button className="button compact" type="submit"><UserPlus size={15} /> Add artist</button>
+              <PendingSubmitButton className="button compact" type="submit" pendingLabel="Adding…">
+                <UserPlus size={15} /> Add artist
+              </PendingSubmitButton>
             </form>
           </section>
           <section className="panel">
@@ -45,7 +48,9 @@ export default async function AdminArtists() {
               <form action={deleteArtistAction} className="provider-card" key={artist.id}>
                 <input type="hidden" name="id" value={artist.id} />
                 <span><strong>{artist.name}</strong><small>{artist.slug}</small></span>
-                <button className="icon-button" type="submit" aria-label={`Delete ${artist.name}`}><Trash2 size={14} /></button>
+                <PendingSubmitButton className="icon-button" type="submit" aria-label={`Delete ${artist.name}`} pendingLabel="…">
+                  <Trash2 size={14} />
+                </PendingSubmitButton>
               </form>
             ))}
           </section>

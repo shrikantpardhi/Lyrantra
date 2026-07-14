@@ -268,6 +268,7 @@ export async function deleteSongAction(formData: FormData) {
   }
   revalidatePath("/sitemap.xml");
   revalidatePath("/admin/songs");
+  redirect(`/admin/songs?notice=${encodeURIComponent(song ? `${song.title} deleted` : "Song deleted")}`);
 }
 
 export async function saveArtistAction(formData: FormData) {
@@ -285,6 +286,7 @@ export async function saveArtistAction(formData: FormData) {
   revalidatePath("/en");
   revalidatePath(`/en/artist/${artist.slug}`);
   revalidatePath("/sitemap.xml");
+  redirect(`/admin/artists?notice=${encodeURIComponent(`${artist.name} saved`)}`);
 }
 
 export async function deleteArtistAction(formData: FormData) {
@@ -292,6 +294,7 @@ export async function deleteArtistAction(formData: FormData) {
   await deleteArtist(String(formData.get("id")));
   revalidatePath("/admin/artists");
   revalidatePath("/sitemap.xml");
+  redirect("/admin/artists?notice=Artist%20deleted");
 }
 
 const commentSchema = z.object({
@@ -314,11 +317,14 @@ export async function submitCommentAction(formData: FormData) {
 
 export async function moderateCommentAction(formData: FormData) {
   await requireAdmin();
-  await moderateComment(
-    String(formData.get("id")),
-    String(formData.get("status")) as Comment["status"],
-  );
+  const status = String(formData.get("status")) as Comment["status"];
+  await moderateComment(String(formData.get("id")), status);
   revalidatePath("/admin/comments");
+  redirect(
+    `/admin/comments?notice=${encodeURIComponent(
+      status === "approved" ? "Comment approved" : "Comment rejected",
+    )}`,
+  );
 }
 
 const contactSchema = z.object({
@@ -367,21 +373,25 @@ export async function saveProviderAction(formData: FormData) {
 
 export async function toggleProviderAction(formData: FormData) {
   await requireAdmin();
-  await setAIProviderEnabled(String(formData.get("id")), formData.get("enabled") === "true");
+  const enabled = formData.get("enabled") === "true";
+  await setAIProviderEnabled(String(formData.get("id")), enabled);
   revalidatePath("/admin/ai");
+  redirect(`/admin/ai?notice=${encodeURIComponent(enabled ? "Provider enabled" : "Provider paused")}`);
 }
 
 export async function deleteProviderAction(formData: FormData) {
   await requireAdmin();
   await deleteAIProvider(String(formData.get("id")));
   revalidatePath("/admin/ai");
+  redirect("/admin/ai?notice=Provider%20removed");
 }
 
 export async function runAIAction() {
   await requireAdmin();
-  await runDiscoveryAgent();
+  const run = await runDiscoveryAgent();
   revalidatePath("/admin/ai");
   revalidatePath("/admin");
+  redirect(`/admin/ai?notice=${encodeURIComponent(run.summary)}`);
 }
 
 async function resolveArtistIds(candidate: DiscoveryCandidate) {

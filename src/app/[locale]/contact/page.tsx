@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Mail, MessageCircle, ShieldAlert } from "lucide-react";
 import { submitContactAction } from "@/app/actions";
+import { PendingSubmitButton } from "@/components/ui-feedback";
 
 export const metadata: Metadata = {
   title: "Contact us",
@@ -20,7 +21,7 @@ export default async function ContactPage({
         <div className="eyebrow">We are listening</div>
         <h1 className="search-title">Contact Lyranta</h1>
         <p className="muted" style={{ margin: "12px 0 28px", lineHeight: 1.7 }}>
-          Send a correction, ask about licensing, propose a partnership, or tell us how we can improve.
+          Send a correction, ask about licensing, request content removal, propose a partnership, or tell us how we can improve.
         </p>
         {query.sent === "true" && <div className="notice">Your message reached our editorial queue. Thank you.</div>}
         <form className="form-card form-grid" action={submitContactAction}>
@@ -29,11 +30,15 @@ export default async function ContactPage({
           <label className="field full"><span>Subject</span><input name="subject" required defaultValue={query.subject} /></label>
           <label className="field full"><span>Message</span><textarea name="message" required minLength={10} /></label>
           <label className="honeypot" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
-          <div><button className="button" type="submit"><Mail size={17} /> Send message</button></div>
+          <div>
+            <PendingSubmitButton className="button" type="submit" pendingLabel="Sending…">
+              <Mail size={17} /> Send message
+            </PendingSubmitButton>
+          </div>
         </form>
         <div className="category-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)", marginTop: 22 }}>
           <div className="category-card"><MessageCircle /><strong>Editorial</strong><span>Corrections and missing credits are reviewed before updates.</span></div>
-          <div className="category-card"><ShieldAlert /><strong>Copyright</strong><span>Rights-holder requests receive a dedicated audit trail.</span></div>
+          <div className="category-card"><ShieldAlert /><strong>Copyright</strong><span>Rights holders can request removal by email through this form. Lyranta does not claim ownership of artist or writer content.</span></div>
         </div>
       </div>
     </div>

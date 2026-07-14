@@ -1,5 +1,6 @@
 import { Check, X } from "lucide-react";
 import { moderateCommentAction } from "@/app/actions";
+import { PendingSubmitButton } from "@/components/ui-feedback";
 import { getComments, getSongById } from "@/lib/repository";
 
 export default async function AdminComments() {
@@ -28,12 +29,12 @@ export default async function AdminComments() {
                     <form action={moderateCommentAction}>
                       <input type="hidden" name="id" value={comment.id} />
                       <input type="hidden" name="status" value="approved" />
-                      <button type="submit" aria-label="Approve"><Check size={13} /></button>
+                      <PendingSubmitButton type="submit" aria-label="Approve" pendingLabel="…"><Check size={13} /></PendingSubmitButton>
                     </form>
                     <form action={moderateCommentAction}>
                       <input type="hidden" name="id" value={comment.id} />
                       <input type="hidden" name="status" value="rejected" />
-                      <button type="submit" aria-label="Reject"><X size={13} /></button>
+                      <PendingSubmitButton type="submit" aria-label="Reject" pendingLabel="…"><X size={13} /></PendingSubmitButton>
                     </form>
                   </div>
                 </td>

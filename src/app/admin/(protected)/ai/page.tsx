@@ -8,20 +8,18 @@ import {
   saveProviderAction,
   toggleProviderAction,
 } from "@/app/actions";
+import { PendingSubmitButton } from "@/components/ui-feedback";
 import { parseRunDetails } from "@/lib/ai-discovery";
 import { listAIProviders, listAIRuns } from "@/lib/repository";
 
-export default async function AIWorkspace({
-  searchParams,
-}: {
-  searchParams: Promise<{ notice?: string }>;
-}) {
-  const [providers, runs, query] = await Promise.all([listAIProviders(), listAIRuns(), searchParams]);
+export default async function AIWorkspace() {
+  const [providers, runs] = await Promise.all([listAIProviders(), listAIRuns()]);
   const reviewQueue = runs.flatMap((run) =>
     parseRunDetails(run.details)
       .map((candidate, index) => ({ run, candidate, index }))
       .filter(({ candidate }) => candidate.reviewStatus === "pending"),
   );
+  const canRun = providers.some((provider) => provider.enabled);
 
   return (
     <>
@@ -32,16 +30,16 @@ export default async function AIWorkspace({
           <p>Sign in and start metadata research when you need it. Nothing runs on a schedule.</p>
         </div>
         <form action={runAIAction}>
-          <button
+          <PendingSubmitButton
             className="button compact"
             type="submit"
-            disabled={!providers.some((provider) => provider.enabled)}
+            disabled={!canRun}
+            pendingLabel="Researching…"
           >
             <Play size={15} /> Run discovery now
-          </button>
+          </PendingSubmitButton>
         </form>
       </header>
-      {query.notice && <div className="notice">{query.notice}</div>}
       <div className="notice">
         <ShieldCheck size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
         AI returns full catalog metadata, artist bios, links, and a meaning draft for review. It never
@@ -114,16 +112,16 @@ export default async function AIWorkspace({
                 <form action={acceptAICandidateAction}>
                   <input type="hidden" name="runId" value={run.id} />
                   <input type="hidden" name="index" value={String(index)} />
-                  <button className="button compact" type="submit" style={{ width: "100%" }}>
+                  <PendingSubmitButton className="button compact" type="submit" style={{ width: "100%" }} pendingLabel="Creating…">
                     <Check size={14} /> Accept draft
-                  </button>
+                  </PendingSubmitButton>
                 </form>
                 <form action={rejectAICandidateAction}>
                   <input type="hidden" name="runId" value={run.id} />
                   <input type="hidden" name="index" value={String(index)} />
-                  <button type="submit" aria-label={`Reject ${candidate.title}`}>
+                  <PendingSubmitButton type="submit" aria-label={`Reject ${candidate.title}`} pendingLabel="Rejecting…">
                     <X size={12} /> Reject
-                  </button>
+                  </PendingSubmitButton>
                 </form>
               </span>
             </article>
@@ -194,15 +192,15 @@ export default async function AIWorkspace({
                   <form action={toggleProviderAction}>
                     <input type="hidden" name="id" value={provider.id} />
                     <input type="hidden" name="enabled" value={String(!provider.enabled)} />
-                    <button type="submit" aria-label={provider.enabled ? "Pause provider" : "Enable provider"}>
+                    <PendingSubmitButton type="submit" aria-label={provider.enabled ? "Pause provider" : "Enable provider"} pendingLabel="…">
                       {provider.enabled ? <Pause size={12} /> : <Play size={12} />}
-                    </button>
+                    </PendingSubmitButton>
                   </form>
                   <form action={deleteProviderAction}>
                     <input type="hidden" name="id" value={provider.id} />
-                    <button type="submit" aria-label="Delete provider">
+                    <PendingSubmitButton type="submit" aria-label="Delete provider" pendingLabel="…">
                       <Trash2 size={12} />
-                    </button>
+                    </PendingSubmitButton>
                   </form>
                 </span>
               </div>
@@ -244,9 +242,9 @@ export default async function AIWorkspace({
                 <span>Custom HTTPS base URL</span>
                 <input name="baseUrl" type="url" placeholder="Optional for Gemini and OpenAI" />
               </label>
-              <button className="button compact" type="submit">
+              <PendingSubmitButton className="button compact" type="submit" pendingLabel="Saving…">
                 <Bot size={15} /> Encrypt and save
-              </button>
+              </PendingSubmitButton>
             </form>
           </section>
         </div>

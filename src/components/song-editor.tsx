@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { saveSongAction } from "@/app/actions";
+import { ArtistMultiSelect } from "@/components/artist-multi-select";
+import { PendingSubmitButton } from "@/components/ui-feedback";
 import { DEFAULT_INTERPRETATION_DISCLAIMER } from "@/lib/interpretation";
 import type {
   Artist,
@@ -108,23 +110,7 @@ export function SongEditor({
           <option value="archived">Archived</option>
         </select>
       </label>
-      <fieldset className="field full" style={{ border: 0 }}>
-        <span>Artists and collaborators</span>
-        <div className="checkboxes">
-          {artists.map((artist) => (
-            <label className="checkbox" key={artist.id}>
-              <input
-                type="checkbox"
-                name="artistIds"
-                value={artist.id}
-                defaultChecked={song?.artistIds.includes(artist.id)}
-              />
-              {artist.name}
-            </label>
-          ))}
-        </div>
-        <small>A song can link to any number of artists. Display order follows this list.</small>
-      </fieldset>
+      <ArtistMultiSelect artists={artists} initialSelectedIds={song?.artistIds ?? []} />
       <label className="checkbox field full" style={{ display: "flex" }}>
         <input name="featured" type="checkbox" defaultChecked={song?.featured} /> Feature on the home page
       </label>
@@ -295,7 +281,9 @@ export function SongEditor({
         </div>
       ))}
       <div className="field full" style={{ display: "flex", flexDirection: "row", justifyContent: "flex-end", marginTop: 15 }}>
-        <button className="button" type="submit"><Save size={17} /> Save song</button>
+        <PendingSubmitButton className="button" type="submit" pendingLabel="Saving…">
+          <Save size={17} /> Save song
+        </PendingSubmitButton>
       </div>
     </form>
   );
