@@ -30,8 +30,8 @@ describe("ai discovery parsing", () => {
     ],
     "lyricSourceNote": "Request lyrics from the publisher.",
     "lyricEditions": [
-      { "language": "English", "languageCode": "en", "type": "original", "sourceNote": "Publisher sheet" },
-      { "language": "Hindi", "languageCode": "hi", "type": "translation", "sourceNote": "Authorized translation" }
+      { "language": "English", "languageCode": "en", "type": "original", "sourceNote": "Publisher sheet", "text": "Verse one line\\nChorus line here" },
+      { "language": "Hindi", "languageCode": "hi", "type": "translation", "sourceNote": "Authorized translation", "text": "Pehla shabd\\nRefren yahan" }
     ],
     "interpretation": {
       "summary": "A song about finding home after travel across the coast.",
@@ -55,7 +55,8 @@ describe("ai discovery parsing", () => {
     });
     expect(candidates[0].artistDetails[0]?.bio).toContain("Coastal");
     expect(candidates[0].lyricEditions).toHaveLength(2);
-    expect(toSongLyricPlaceholders(candidates[0])).toHaveLength(2);
+    expect(candidates[0].lyricEditions[0]?.text).toContain("Verse one");
+    expect(toSongLyricPlaceholders(candidates[0])[0]?.text).toContain("Verse one");
     expect(toSongPlatformLinks(candidates[0]).length).toBeGreaterThan(0);
     expect(toSongInterpretation(candidates[0])?.sections).toHaveLength(3);
   });
@@ -82,6 +83,7 @@ describe("ai discovery parsing", () => {
               languageCode: "en",
               type: "original",
               sourceNote: "Publisher",
+              text: "Sample lyric line",
             },
           ],
           reviewStatus: "pending",
