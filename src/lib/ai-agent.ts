@@ -1,10 +1,21 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
-import { parseDiscovery, serializeRunDetails, DISCOVERY_JSON_SCHEMA, formatDiscoveryCriteria, parseRunPayload, type DiscoveryCriteria } from "@/lib/ai-discovery";
+import {
+  DISCOVERY_JSON_SCHEMA,
+  formatCatalogExclusions,
+  formatDiscoveryCriteria,
+  parseDiscovery,
+  parseRunPayload,
+  serializeRunDetails,
+  type DiscoveryCriteria,
+} from "@/lib/ai-discovery";
 import type { AIProvider, AIRun } from "@/lib/types";
-import { getAIRunById, listAIProviders, saveAIRun } from "@/lib/repository";
+import { getAIRunById, listAIProviders, listCatalogSongsForDedup, saveAIRun } from "@/lib/repository";
 
 /** Provider calls with search grounding often need more than a short request window. */
 const PROVIDER_TIMEOUT_MS = 120_000;
+/** Keep runs small — full lyrics + meaning inflate response size and timeouts. */
+const MAX_CANDIDATES_PER_RUN = 5;
+const RAW_RESPONSE_LIMIT = 8000;
 
 function encryptionKey() {
   const source = process.env.ENCRYPTION_KEY;
@@ -54,12 +65,15 @@ function discoveryScope(criteria: DiscoveryCriteria) {
   return lines.join("\n");
 }
 
-function discoveryPrompt(limit: number, criteria: DiscoveryCriteria) {
+function discoveryPrompt(limit: number, criteria: DiscoveryCriteria, catalogExclusions = "") {
   const scope = discoveryScope(criteria);
   const yearHint =
     criteria.yearFrom || criteria.yearTo
       ? "Prefer songs matching the year range above."
       : "Prefer songs officially released in the last seven days unless the criteria say otherwise.";
+  const exclusionsBlock = catalogExclusions
+    ? `\nSongs already in the Lyranta catalog — do NOT propose these again:\n${catalogExclusions}\n`
+    : "";
 
   return `You are a music metadata and meaning research assistant for Lyranta.
 Find up to ${limit} songs that match the research brief below.
@@ -70,7 +84,7 @@ ${scope || "- No extra filters; discover notable recent official releases."}
 
 ${yearHint}
 If the market is Bollywood, Tollywood, Kollywood, or similar, prioritize film soundtrack and official label releases from that industry.
-
+${exclusionsBlock}
 Return the most COMPLETE catalog draft possible for editorial review.
 Every object MUST follow this JSON shape:
 ${DISCOVERY_JSON_SCHEMA}
@@ -82,6 +96,8 @@ Rules:
 - lyricEditions is REQUIRED: include the complete lyric text for each language edition in the "text" field. Preserve verse/chorus structure with newline characters.
 - Include original-language lyrics plus any widely available translations or transliterations as separate lyricEditions entries when you can find them.
 - interpretation is REQUIRED: rich summary, at least 3 themes, culturalContext, and at least 3 section meanings (Verse/Chorus/Bridge style).
+- Drop any song that matches an excluded catalog title/artists/year above.
+- Skip songs when you cannot provide both full lyrics and a complete interpretation.
 - Every item needs one directly supporting officialSourceUrl.
 - Prefer results that match the research brief filters when they conflict with generic recent hits.
 - Respond with a JSON array only.`;
@@ -209,28 +225,32 @@ export async function executeDiscoveryRun(runId: string) {
   };
   await saveAIRun(run);
 
+  let providerText = "";
   try {
     const provider = (await listAIProviders()).find((item) => item.id === run.providerId && item.enabled)
       || (await listAIProviders()).find((item) => item.enabled);
     if (!provider) throw new Error("No enabled AI provider is configured");
     run.providerId = provider.id;
     const apiKey = decryptSecret(provider.encryptedApiKey);
-    const candidateLimit = Math.min(20, Math.max(1, provider.dailyLimit));
-    const prompt = discoveryPrompt(candidateLimit, criteria);
-    const text =
+    const candidateLimit = Math.min(MAX_CANDIDATES_PER_RUN, Math.max(1, provider.dailyLimit));
+    const catalog = await listCatalogSongsForDedup();
+    const prompt = discoveryPrompt(candidateLimit, criteria, formatCatalogExclusions(catalog));
+    providerText =
       provider.provider === "gemini"
         ? await callGemini(provider, apiKey, prompt)
         : provider.provider === "openai"
           ? await callOpenAI(provider, apiKey, prompt)
           : await callCompatible(provider, apiKey, prompt);
-    if (!text.trim()) throw new Error("The provider returned an empty response");
-    const discoveries = parseDiscovery(text, candidateLimit);
+    if (!providerText.trim()) throw new Error("The provider returned an empty response");
+    const discoveries = parseDiscovery(providerText, candidateLimit);
     if (!discoveries.length) {
       run.status = "failed";
       run.summary = brief
-        ? `No valid candidates found for ${brief}.`
-        : "The provider responded, but no valid metadata candidates were found.";
-      run.details = serializeRunDetails([], criteria, { rawResponse: text.slice(0, 4000) });
+        ? `No valid candidates found for ${brief} (need lyrics + meaning; catalog duplicates skipped).`
+        : "The provider responded, but no complete candidates (lyrics + meaning) were found.";
+      run.details = serializeRunDetails([], criteria, {
+        rawResponse: providerText.slice(0, RAW_RESPONSE_LIMIT),
+      });
       run.candidates = 0;
     } else {
       run.status = "needs_review";
@@ -244,7 +264,9 @@ export async function executeDiscoveryRun(runId: string) {
     run.status = "failed";
     run.summary = providerErrorMessage(error);
     run.candidates = 0;
-    run.details = serializeRunDetails([], criteria);
+    run.details = serializeRunDetails([], criteria, {
+      rawResponse: providerText.trim() ? providerText.slice(0, RAW_RESPONSE_LIMIT) : undefined,
+    });
   }
   run.finishedAt = new Date().toISOString();
   await saveAIRun(run);

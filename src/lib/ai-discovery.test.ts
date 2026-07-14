@@ -117,6 +117,16 @@ describe("ai discovery parsing", () => {
   });
 
   it("dedupes repeated candidates within one discovery response", () => {
+    const interpretation = {
+      summary: "A coastal homecoming song.",
+      themes: ["belonging", "travel", "memory"],
+      culturalContext: "Atlantic folk imagery.",
+      sections: [
+        { label: "Verse 1", meaning: "Leaving home." },
+        { label: "Chorus", meaning: "Finding light." },
+        { label: "Bridge", meaning: "Accepting change." },
+      ],
+    };
     const text = `[
       {
         "title": "Harbor Light",
@@ -125,7 +135,8 @@ describe("ai discovery parsing", () => {
         "language": "English",
         "officialSourceUrl": "https://example.com/song",
         "description": "Official announcement from the label.",
-        "lyricEditions": [{ "language": "English", "languageCode": "en", "type": "original", "text": "Line one" }]
+        "lyricEditions": [{ "language": "English", "languageCode": "en", "type": "original", "text": "Line one" }],
+        "interpretation": ${JSON.stringify(interpretation)}
       },
       {
         "title": "Harbor Light",
@@ -134,10 +145,25 @@ describe("ai discovery parsing", () => {
         "language": "English",
         "officialSourceUrl": "https://example.com/song-2",
         "description": "Duplicate entry in the same response.",
-        "lyricEditions": [{ "language": "English", "languageCode": "en", "type": "original", "text": "Line one" }]
+        "lyricEditions": [{ "language": "English", "languageCode": "en", "type": "original", "text": "Line one" }],
+        "interpretation": ${JSON.stringify(interpretation)}
       }
     ]`;
     expect(parseDiscovery(text, 5)).toHaveLength(1);
+  });
+
+  it("drops incomplete candidates missing lyrics or meaning", () => {
+    const text = `[
+      {
+        "title": "Thin Draft",
+        "artists": ["Asha"],
+        "releaseYear": 2026,
+        "language": "English",
+        "officialSourceUrl": "https://example.com/thin",
+        "description": "Missing lyrics and interpretation on purpose."
+      }
+    ]`;
+    expect(parseDiscovery(text, 5)).toHaveLength(0);
   });
 
   it("detects catalog duplicates by title, artists, and year", () => {

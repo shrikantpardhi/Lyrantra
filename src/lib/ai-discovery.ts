@@ -376,6 +376,38 @@ export function findCatalogDuplicate(
   );
 }
 
+export function candidateHasLyrics(candidate: DiscoveryCandidate) {
+  return candidate.lyricEditions.some((edition) => edition.text.trim().length > 0);
+}
+
+export function candidateHasInterpretation(candidate: DiscoveryCandidate) {
+  const draft = candidate.interpretation;
+  if (!draft) return false;
+  return Boolean(
+    draft.summary.trim() &&
+    draft.themes.length > 0 &&
+    draft.sections.length > 0,
+  );
+}
+
+/** Thin drafts (no lyrics or meaning) are dropped before review. */
+export function isCompleteCandidate(candidate: DiscoveryCandidate) {
+  return candidateHasLyrics(candidate) && candidateHasInterpretation(candidate);
+}
+
+export function formatCatalogExclusions(
+  catalog: Array<Pick<Song, "title" | "releaseYear" | "artists">>,
+  limit = 80,
+) {
+  return catalog
+    .slice(0, limit)
+    .map(
+      (song) =>
+        `- ${song.title} (${song.releaseYear}) — ${song.artists.map((artist) => artist.name).join(", ")}`,
+    )
+    .join("\n");
+}
+
 function dedupeDiscoveryBatch(candidates: DiscoveryCandidate[]) {
   const seen = new Set<string>();
   const unique: DiscoveryCandidate[] = [];
@@ -402,9 +434,9 @@ export function parseDiscovery(text: string, limit: number): DiscoveryCandidate[
       parsed
         .map((item) => normalizeCandidate(item))
         .filter((item): item is DiscoveryCandidate => Boolean(item))
-        .slice(0, limit)
+        .filter(isCompleteCandidate)
         .map((item) => ({ ...item, reviewStatus: "pending" as const, songId: undefined })),
-    );
+    ).slice(0, limit);
   } catch {
     return [];
   }

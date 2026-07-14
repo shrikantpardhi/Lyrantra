@@ -12,6 +12,9 @@ import {
 } from "@/lib/auth";
 import { encryptSecret, enqueueDiscoveryRun, executeDiscoveryRun } from "@/lib/ai-agent";
 import {
+  candidateHasInterpretation,
+  candidateHasLyrics,
+  duplicateKeyForCandidate,
   ensureDescription,
   findCatalogDuplicate,
   finalizeRunStatus,
@@ -33,6 +36,7 @@ import {
   deleteSong,
   getAIRunById,
   getSongById,
+  listAIRuns,
   listArtists,
   listCatalogSongsForDedup,
   listMovies,
@@ -354,7 +358,7 @@ const providerSchema = z.object({
   model: z.string().trim().min(2).max(120),
   apiKey: z.string().trim().min(8).max(500),
   baseUrl: z.union([z.literal(""), z.string().url().startsWith("https://")]),
-  dailyLimit: z.coerce.number().int().min(1).max(20),
+  dailyLimit: z.coerce.number().int().min(1).max(5),
 });
 
 export async function saveProviderAction(formData: FormData) {
@@ -525,6 +529,36 @@ async function persistCandidateDecision(
   return { run, candidate: candidates[index] };
 }
 
+function parseSelectionKeys(formData: FormData) {
+  return formData
+    .getAll("selection")
+    .map((value) => String(value))
+    .map((value) => {
+      const [runId, indexRaw] = value.split(":");
+      const index = Number(indexRaw);
+      if (!runId || !Number.isInteger(index) || index < 0) return undefined;
+      return { runId, index };
+    })
+    .filter((item): item is { runId: string; index: number } => Boolean(item));
+}
+
+async function isCanonicalPendingCandidate(
+  candidate: DiscoveryCandidate,
+  exclude: { runId: string; index: number },
+) {
+  const runs = await listAIRuns(200);
+  const key = duplicateKeyForCandidate(candidate);
+  for (const run of runs) {
+    const candidates = parseRunDetails(run.details);
+    for (const [index, other] of candidates.entries()) {
+      if (other.reviewStatus !== "pending") continue;
+      if (duplicateKeyForCandidate(other) !== key) continue;
+      return run.id === exclude.runId && index === exclude.index;
+    }
+  }
+  return false;
+}
+
 export async function acceptAICandidateAction(formData: FormData) {
   await requireAdmin();
   const runId = String(formData.get("runId") || "");
@@ -539,6 +573,13 @@ export async function acceptAICandidateAction(formData: FormData) {
   if (candidate.reviewStatus !== "pending") {
     redirect(`/admin/ai?notice=${encodeURIComponent("That candidate was already reviewed")}`);
   }
+  if (!candidateHasLyrics(candidate) || !candidateHasInterpretation(candidate)) {
+    redirect(
+      `/admin/ai?notice=${encodeURIComponent(
+        `"${candidate.title}" is incomplete (needs lyrics and meaning). Reject it or wait for a fuller discovery run.`,
+      )}`,
+    );
+  }
 
   const catalog = await listCatalogSongsForDedup();
   const duplicate = findCatalogDuplicate(candidate, catalog);
@@ -546,6 +587,14 @@ export async function acceptAICandidateAction(formData: FormData) {
     redirect(
       `/admin/ai?notice=${encodeURIComponent(
         `"${candidate.title}" already exists in the catalog (${duplicate.title}). Reject this candidate or edit the existing song.`,
+      )}`,
+    );
+  }
+
+  if (!(await isCanonicalPendingCandidate(candidate, { runId, index }))) {
+    redirect(
+      `/admin/ai?notice=${encodeURIComponent(
+        `"${candidate.title}" is already pending in another research run. Reject this duplicate, then accept the first copy.`,
       )}`,
     );
   }
@@ -590,4 +639,149 @@ export async function rejectAICandidateAction(formData: FormData) {
   revalidatePath("/admin/ai");
   revalidatePath("/admin");
   redirect("/admin/ai?notice=Candidate%20rejected");
+}
+
+export async function rejectDuplicateAICandidatesAction() {
+  await requireAdmin();
+  const [runs, catalog] = await Promise.all([listAIRuns(200), listCatalogSongsForDedup()]);
+  const seenKeys = new Set<string>();
+  let rejected = 0;
+
+  for (const run of runs) {
+    const { candidates, criteria } = parseRunPayload(run.details);
+    let changed = false;
+    for (const [index, candidate] of candidates.entries()) {
+      if (candidate.reviewStatus !== "pending") continue;
+      const key = duplicateKeyForCandidate(candidate);
+      const inCatalog = Boolean(findCatalogDuplicate(candidate, catalog));
+      const queueDup = seenKeys.has(key);
+      seenKeys.add(key);
+      if (!inCatalog && !queueDup) continue;
+      candidates[index] = { ...candidate, reviewStatus: "rejected" };
+      changed = true;
+      rejected += 1;
+    }
+    if (!changed) continue;
+    const pending = candidates.filter((item) => item.reviewStatus === "pending").length;
+    const accepted = candidates.filter((item) => item.reviewStatus === "accepted").length;
+    const rejectedCount = candidates.filter((item) => item.reviewStatus === "rejected").length;
+    run.details = serializeRunDetails(candidates, criteria);
+    run.status = finalizeRunStatus(candidates);
+    run.summary =
+      run.status === "completed"
+        ? `Review complete: ${accepted} accepted, ${rejectedCount} rejected.`
+        : `${pending} candidate${pending === 1 ? "" : "s"} still need review (${accepted} accepted, ${rejectedCount} rejected).`;
+    run.finishedAt = new Date().toISOString();
+    await saveAIRun(run);
+  }
+
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  redirect(
+    `/admin/ai?notice=${encodeURIComponent(
+      rejected ? `Rejected ${rejected} duplicate candidate${rejected === 1 ? "" : "s"}` : "No duplicates to reject",
+    )}`,
+  );
+}
+
+export async function bulkRejectAICandidatesAction(formData: FormData) {
+  await requireAdmin();
+  const selections = parseSelectionKeys(formData);
+  let rejected = 0;
+  for (const { runId, index } of selections) {
+    try {
+      await persistCandidateDecision(runId, index, "rejected");
+      rejected += 1;
+    } catch {
+      // already reviewed or missing — skip
+    }
+  }
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  redirect(
+    `/admin/ai?notice=${encodeURIComponent(
+      rejected ? `Rejected ${rejected} candidate${rejected === 1 ? "" : "s"}` : "No candidates rejected",
+    )}`,
+  );
+}
+
+export async function bulkAcceptAICandidatesAction(formData: FormData) {
+  await requireAdmin();
+  const selections = parseSelectionKeys(formData);
+  const catalog = await listCatalogSongsForDedup();
+  let accepted = 0;
+  let skipped = 0;
+  const acceptedKeys = new Set<string>();
+
+  for (const { runId, index } of selections) {
+    const run = await getAIRunById(runId);
+    if (!run) {
+      skipped += 1;
+      continue;
+    }
+    const candidates = parseRunDetails(run.details);
+    const candidate = candidates[index];
+    if (!candidate || candidate.reviewStatus !== "pending") {
+      skipped += 1;
+      continue;
+    }
+    if (!candidateHasLyrics(candidate) || !candidateHasInterpretation(candidate)) {
+      skipped += 1;
+      continue;
+    }
+    if (findCatalogDuplicate(candidate, catalog)) {
+      skipped += 1;
+      continue;
+    }
+    const key = duplicateKeyForCandidate(candidate);
+    if (acceptedKeys.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    if (!(await isCanonicalPendingCandidate(candidate, { runId, index }))) {
+      skipped += 1;
+      continue;
+    }
+
+    try {
+      const artistIds = await resolveArtistIds(candidate);
+      const movieId = await resolveMovieId(candidate);
+      const description = ensureDescription(candidate);
+      const songSlug = await resolveUniqueSongSlug(candidate.title, candidate.releaseYear);
+      const song = await saveSong({
+        title: candidate.title,
+        slug: songSlug,
+        alternateTitle: candidate.alternateTitle,
+        description,
+        releaseYear: candidate.releaseYear,
+        language: candidate.language,
+        category: candidate.category,
+        genre: candidate.genre,
+        tags: candidate.tags,
+        artistIds,
+        movieId,
+        lyrics: toSongLyricPlaceholders(candidate),
+        platformLinks: toSongPlatformLinks(candidate),
+        interpretation: toSongInterpretation(candidate),
+        status: "draft",
+        featured: false,
+      });
+      await persistCandidateDecision(runId, index, "accepted", song.id);
+      catalog.push(song);
+      acceptedKeys.add(key);
+      accepted += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
+  revalidatePath("/admin/songs");
+  revalidatePath("/admin/artists");
+  redirect(
+    `/admin/ai?notice=${encodeURIComponent(
+      `Accepted ${accepted} draft${accepted === 1 ? "" : "s"}${skipped ? ` · skipped ${skipped}` : ""}`,
+    )}`,
+  );
 }

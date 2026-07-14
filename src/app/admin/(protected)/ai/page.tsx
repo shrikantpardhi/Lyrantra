@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { Bot, Check, KeyRound, Pause, Play, ShieldCheck, Trash2, X } from "lucide-react";
+import { Bot, KeyRound, Pause, Play, ShieldCheck, Trash2 } from "lucide-react";
 import {
-  acceptAICandidateAction,
   deleteProviderAction,
-  rejectAICandidateAction,
   runAIAction,
   saveProviderAction,
   toggleProviderAction,
 } from "@/app/actions";
+import { AIReviewTable, type ReviewRow } from "@/components/ai-review-table";
 import { AIRunPoller } from "@/components/ai-run-poller";
 import { PendingSubmitButton } from "@/components/ui-feedback";
 import {
+  candidateHasLyrics,
   duplicateKeyForCandidate,
   findCatalogDuplicate,
   formatDiscoveryCriteria,
@@ -23,48 +23,52 @@ export const maxDuration = 300;
 
 const REVIEW_PAGE_SIZE = 12;
 
+type ReviewFilter = "all" | "new" | "catalog" | "missing";
+
 function runStatusLabel(status: string) {
   return status.replaceAll("_", " ");
-}
-
-function truncate(value: string, max = 120) {
-  const trimmed = value.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 1)}…`;
 }
 
 function AdminPagination({
   page,
   pages,
-  basePath = "/admin/ai",
+  href,
 }: {
   page: number;
   pages: number;
-  basePath?: string;
+  href: (page: number) => string;
 }) {
   if (pages <= 1) return null;
   return (
     <nav className="pagination" aria-label="Review pagination" style={{ marginTop: 16 }}>
-      {page > 1 ? (
-        <Link href={page === 2 ? basePath : `${basePath}?page=${page - 1}`}>Previous</Link>
-      ) : (
-        <span />
-      )}
+      {page > 1 ? <Link href={href(page - 1)}>Previous</Link> : <span />}
       <span>
         Page {page} of {pages}
       </span>
-      {page < pages ? <Link href={`${basePath}?page=${page + 1}`}>Next</Link> : <span />}
+      {page < pages ? <Link href={href(page + 1)}>Next</Link> : <span />}
     </nav>
   );
+}
+
+function filterHref(filter: ReviewFilter, page?: number) {
+  const params = new URLSearchParams();
+  if (filter !== "all") params.set("filter", filter);
+  if (page && page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `/admin/ai?${query}` : "/admin/ai";
 }
 
 export default async function AIWorkspace({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; notice?: string }>;
+  searchParams: Promise<{ page?: string; notice?: string; filter?: string }>;
 }) {
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
+  const filter: ReviewFilter =
+    query.filter === "new" || query.filter === "catalog" || query.filter === "missing"
+      ? query.filter
+      : "all";
 
   const [providers, runs, catalog] = await Promise.all([
     listAIProviders(),
@@ -73,28 +77,62 @@ export default async function AIWorkspace({
   ]);
 
   const seenQueueKeys = new Set<string>();
-  const reviewQueue = runs.flatMap((run) =>
+  const reviewQueue: ReviewRow[] = runs.flatMap((run) =>
     parseRunDetails(run.details)
       .map((candidate, index) => {
+        if (candidate.reviewStatus !== "pending") return undefined;
         const key = duplicateKeyForCandidate(candidate);
         const queueDuplicate = seenQueueKeys.has(key);
         seenQueueKeys.add(key);
         const catalogMatch = findCatalogDuplicate(candidate, catalog);
+        const hasLyrics = candidateHasLyrics(candidate);
+        const status: ReviewRow["status"] = catalogMatch
+          ? "catalog"
+          : queueDuplicate
+            ? "queue_duplicate"
+            : !hasLyrics
+              ? "missing_lyrics"
+              : "new";
+        const canAccept = status === "new";
         return {
-          run,
-          candidate,
+          key: `${run.id}:${index}`,
+          runId: run.id,
           index,
-          catalogMatch,
-          queueDuplicate,
+          title: candidate.title,
+          alternateTitle: candidate.alternateTitle,
+          artists: candidate.artists.join(", "),
+          releaseYear: candidate.releaseYear,
+          language: candidate.language,
+          category: candidate.category,
+          genre: candidate.genre,
+          movie: candidate.movie,
           slug: slugify(candidate.title),
-        };
+          lyricPreview: candidate.lyricEditions.find((edition) => edition.text)?.text || "",
+          lyricsFull: candidate.lyricEditions.find((edition) => edition.text)?.text,
+          description: candidate.description,
+          meaningPreview: candidate.interpretation?.summary,
+          catalogSongId: catalogMatch?.id,
+          status,
+          canAccept,
+        } satisfies ReviewRow;
       })
-      .filter(({ candidate }) => candidate.reviewStatus === "pending"),
+      .filter((item): item is ReviewRow => Boolean(item)),
   );
 
-  const reviewPages = Math.max(1, Math.ceil(reviewQueue.length / REVIEW_PAGE_SIZE));
+  const duplicateCount = reviewQueue.filter(
+    (row) => row.status === "catalog" || row.status === "queue_duplicate",
+  ).length;
+
+  const filteredQueue = reviewQueue.filter((row) => {
+    if (filter === "new") return row.status === "new";
+    if (filter === "catalog") return row.status === "catalog" || row.status === "queue_duplicate";
+    if (filter === "missing") return row.status === "missing_lyrics" || !row.lyricPreview;
+    return true;
+  });
+
+  const reviewPages = Math.max(1, Math.ceil(filteredQueue.length / REVIEW_PAGE_SIZE));
   const safePage = Math.min(page, reviewPages);
-  const pageItems = reviewQueue.slice(
+  const pageItems = filteredQueue.slice(
     (safePage - 1) * REVIEW_PAGE_SIZE,
     safePage * REVIEW_PAGE_SIZE,
   );
@@ -102,6 +140,13 @@ export default async function AIWorkspace({
   const canRun = providers.some((provider) => provider.enabled);
   const hasActiveRun = runs.some((run) => run.status === "queued" || run.status === "running");
   const currentYear = new Date().getFullYear();
+
+  const filterCounts = {
+    all: reviewQueue.length,
+    new: reviewQueue.filter((row) => row.status === "new").length,
+    catalog: duplicateCount,
+    missing: reviewQueue.filter((row) => row.status === "missing_lyrics" || !row.lyricPreview).length,
+  };
 
   return (
     <>
@@ -120,15 +165,15 @@ export default async function AIWorkspace({
       )}
       <div className="notice">
         <ShieldCheck size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
-        AI returns full catalog metadata, lyrics, artist bios, links, and a meaning draft for review.
-        Accept or reject each candidate — duplicates are blocked from being added again.
+        AI returns lyrics, meaning, and catalog metadata. Incomplete drafts are dropped. Known catalog
+        titles are excluded from the research brief. Accept stays draft-only.
       </div>
 
       <section className="panel" style={{ marginTop: 18 }}>
         <h2>Research brief</h2>
         <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 16, lineHeight: 1.6 }}>
           Tell the agent what to pull — for example Bollywood soundtracks from 2024–2026 in Hindi.
-          Leave years blank to default to the last seven days.
+          Leave years blank to default to the last seven days. Max 5 candidates per run.
         </p>
         <form className="form-grid" action={runAIAction}>
           <label className="field">
@@ -199,140 +244,40 @@ export default async function AIWorkspace({
           <div>
             <h2>Needs review</h2>
             <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-              {reviewQueue.length} candidate{reviewQueue.length === 1 ? "" : "s"} waiting
+              {filteredQueue.length} shown · {reviewQueue.length} pending total
             </p>
           </div>
         </div>
+        <div className="row-actions" style={{ marginBottom: 14, flexWrap: "wrap", justifyContent: "flex-start" }}>
+          {(
+            [
+              ["all", "All"],
+              ["new", "New"],
+              ["catalog", "Duplicates"],
+              ["missing", "Missing lyrics"],
+            ] as const
+          ).map(([value, label]) => (
+            <Link
+              key={value}
+              className={filter === value ? "button compact" : "text-link"}
+              href={filterHref(value)}
+              style={filter === value ? undefined : { fontSize: 12, padding: "6px 10px" }}
+            >
+              {label} ({filterCounts[value]})
+            </Link>
+          ))}
+        </div>
         {pageItems.length ? (
           <>
-            <div style={{ overflowX: "auto" }}>
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Artists</th>
-                    <th>Year</th>
-                    <th>Language</th>
-                    <th>Slug</th>
-                    <th>Lyrics</th>
-                    <th>Catalog</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageItems.map(({ run, candidate, index, catalogMatch, queueDuplicate, slug }) => {
-                    const lyricPreview = candidate.lyricEditions.find((edition) => edition.text)?.text || "";
-                    const isDuplicate = Boolean(catalogMatch) || queueDuplicate;
-                    return (
-                      <tr key={`${run.id}-${index}`}>
-                        <td>
-                          <strong>{candidate.title}</strong>
-                          {candidate.alternateTitle && (
-                            <>
-                              <br />
-                              <span className="muted">{candidate.alternateTitle}</span>
-                            </>
-                          )}
-                          <br />
-                          <span className="muted">
-                            {candidate.category} · {candidate.genre}
-                            {candidate.movie ? ` · ${candidate.movie}` : ""}
-                          </span>
-                        </td>
-                        <td>{candidate.artists.join(", ")}</td>
-                        <td>{candidate.releaseYear}</td>
-                        <td>{candidate.language}</td>
-                        <td>
-                          <code style={{ fontSize: 11 }}>{slug}</code>
-                        </td>
-                        <td>
-                          {lyricPreview ? (
-                            <span title={lyricPreview}>{truncate(lyricPreview, 80)}</span>
-                          ) : (
-                            <span className="muted">Missing</span>
-                          )}
-                        </td>
-                        <td>
-                          {catalogMatch ? (
-                            <span className="status failed">In catalog</span>
-                          ) : queueDuplicate ? (
-                            <span className="status needs_review">Duplicate run</span>
-                          ) : (
-                            <span className="status published">New</span>
-                          )}
-                        </td>
-                        <td>
-                          <details style={{ minWidth: 220 }}>
-                            <summary className="text-link" style={{ cursor: "pointer", fontSize: 12 }}>
-                              Review
-                            </summary>
-                            <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.65, maxWidth: 420 }}>
-                              <p>{candidate.description}</p>
-                              {candidate.interpretation && (
-                                <p style={{ marginTop: 8 }}>
-                                  <strong>Meaning:</strong> {truncate(candidate.interpretation.summary, 240)}
-                                </p>
-                              )}
-                              {candidate.lyricEditions.some((edition) => edition.text) && (
-                                <pre
-                                  className="code-block"
-                                  style={{
-                                    marginTop: 8,
-                                    fontSize: 11,
-                                    lineHeight: 1.6,
-                                    whiteSpace: "pre-wrap",
-                                    maxHeight: 200,
-                                    overflow: "auto",
-                                  }}
-                                >
-                                  {candidate.lyricEditions.find((edition) => edition.text)?.text}
-                                </pre>
-                              )}
-                              {catalogMatch && (
-                                <p style={{ marginTop: 8 }}>
-                                  <Link className="text-link" href={`/admin/songs/${catalogMatch.id}/edit`}>
-                                    Open existing song
-                                  </Link>
-                                </p>
-                              )}
-                              <div className="row-actions" style={{ marginTop: 10 }}>
-                                <form action={acceptAICandidateAction}>
-                                  <input type="hidden" name="runId" value={run.id} />
-                                  <input type="hidden" name="index" value={String(index)} />
-                                  <PendingSubmitButton
-                                    className="button compact"
-                                    type="submit"
-                                    disabled={isDuplicate}
-                                    pendingLabel="Creating…"
-                                  >
-                                    <Check size={14} /> Accept
-                                  </PendingSubmitButton>
-                                </form>
-                                <form action={rejectAICandidateAction}>
-                                  <input type="hidden" name="runId" value={run.id} />
-                                  <input type="hidden" name="index" value={String(index)} />
-                                  <PendingSubmitButton
-                                    type="submit"
-                                    aria-label={`Reject ${candidate.title}`}
-                                    pendingLabel="Rejecting…"
-                                  >
-                                    <X size={12} /> Reject
-                                  </PendingSubmitButton>
-                                </form>
-                              </div>
-                            </div>
-                          </details>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <AdminPagination page={safePage} pages={reviewPages} />
+            <AIReviewTable rows={pageItems} duplicateCount={duplicateCount} />
+            <AdminPagination
+              page={safePage}
+              pages={reviewPages}
+              href={(next) => filterHref(filter, next)}
+            />
           </>
         ) : (
-          <p className="muted">No candidates waiting. Run discovery to collect metadata for review.</p>
+          <p className="muted">No candidates in this filter. Run discovery or clear the filter.</p>
         )}
       </section>
 
@@ -340,7 +285,7 @@ export default async function AIWorkspace({
         <section className="panel">
           <h2>Research runs</h2>
           <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 14 }}>
-            Latest runs. Status updates when the background job finishes.
+            Latest runs. Failed runs keep a raw provider snippet for debugging.
           </p>
           {runs.slice(0, 10).map((run) => {
             const { candidates, criteria, rawResponse } = parseRunPayload(run.details);
@@ -383,7 +328,7 @@ export default async function AIWorkspace({
                       ))}
                     </ul>
                   )}
-                  {run.status === "failed" && rawResponse && !candidates.length && (
+                  {run.status === "failed" && rawResponse && (
                     <pre className="code-block" style={{ marginTop: 12 }}>
                       {rawResponse}
                     </pre>
@@ -403,7 +348,7 @@ export default async function AIWorkspace({
                 <span>
                   <strong>{provider.name}</strong>
                   <small>
-                    {provider.provider} · {provider.model} · key ••••••••
+                    {provider.provider} · {provider.model} · key •••••••• · ≤{provider.dailyLimit}/run
                   </small>
                 </span>
                 <span className="row-actions">
@@ -453,7 +398,7 @@ export default async function AIWorkspace({
               </label>
               <label className="field">
                 <span>Candidates per run</span>
-                <input name="dailyLimit" type="number" min="1" max="20" defaultValue="5" />
+                <input name="dailyLimit" type="number" min="1" max="5" defaultValue="5" />
               </label>
               <label className="field full">
                 <span>Model ID</span>
