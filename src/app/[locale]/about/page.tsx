@@ -27,10 +27,12 @@ export default function AboutPage() {
         </div>
         <h2>Our editorial promise</h2>
         <p>
-          We do not treat scraped or generated lyrics as verified content. Every publication must
-          have an authorized source, a clear rights basis, and accountable editorial ownership.
-          Interpretations are separately reviewed, clearly labeled as editorial analysis, and may
-          differ from an artist’s intended meaning. Corrections are reviewed by our editors.
+          Song content belongs to the artists, writers, and rights holders. Lyranta does not claim
+          ownership of third-party lyrics or compositions. We do not treat scraped or AI-generated
+          lyrics as verified content. Every publication must have an authorized source, a clear
+          rights basis, and accountable editorial review. Interpretations are separately reviewed,
+          clearly labeled as editorial analysis, and may differ from an artist’s intended meaning.
+          For removal or correction requests, use our Contact form.
         </p>
       </article>
     </div>

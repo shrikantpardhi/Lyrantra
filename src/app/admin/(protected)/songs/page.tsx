@@ -1,21 +1,17 @@
 import Link from "next/link";
 import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteSongAction } from "@/app/actions";
+import { PendingSubmitButton } from "@/components/ui-feedback";
 import { listSongs } from "@/lib/repository";
 
-export default async function AdminSongs({
-  searchParams,
-}: {
-  searchParams: Promise<{ notice?: string }>;
-}) {
-  const [songs, query] = await Promise.all([listSongs({ limit: 50 }, true), searchParams]);
+export default async function AdminSongs() {
+  const songs = await listSongs({ limit: 50 }, true);
   return (
     <>
       <header className="admin-heading">
         <div><div className="eyebrow">Catalog</div><h1>Songs & lyrics</h1><p>Manage multilingual editions, meanings, credits, and publication state.</p></div>
         <Link className="button compact" href="/admin/songs/new"><Plus size={16} /> Add song</Link>
       </header>
-      {query.notice && <div className="notice">{query.notice}</div>}
       <section className="panel">
         <table className="admin-table">
           <thead><tr><th>Title</th><th>Artists</th><th>Taxonomy</th><th>Lyrics</th><th>Meaning</th><th>Status</th><th>Actions</th></tr></thead>
@@ -38,7 +34,7 @@ export default async function AdminSongs({
                     <Link href={`/admin/songs/${song.id}/edit`} aria-label="Edit"><Pencil size={13} /></Link>
                     <form action={deleteSongAction}>
                       <input type="hidden" name="id" value={song.id} />
-                      <button aria-label="Delete" type="submit"><Trash2 size={13} /></button>
+                      <PendingSubmitButton aria-label="Delete" type="submit" pendingLabel="…"><Trash2 size={13} /></PendingSubmitButton>
                     </form>
                   </div>
                 </td>

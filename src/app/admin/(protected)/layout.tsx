@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminFeedbackShell } from "@/components/admin-feedback";
 import { AdminSidebar } from "@/components/site";
 import { getAdminSession } from "@/lib/auth";
 
@@ -8,7 +9,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="admin-shell">
       <AdminSidebar email={session.email} />
-      <main className="admin-main">{children}</main>
+      <main className="admin-main">
+        <AdminFeedbackShell>{children}</AdminFeedbackShell>
+      </main>
     </div>
   );
 }
