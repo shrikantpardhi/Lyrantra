@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
-import { parseDiscovery, serializeRunDetails, DISCOVERY_JSON_SCHEMA } from "@/lib/ai-discovery";
+import { parseDiscovery, serializeRunDetails, DISCOVERY_JSON_SCHEMA, formatDiscoveryCriteria, parseRunPayload, type DiscoveryCriteria } from "@/lib/ai-discovery";
 import type { AIProvider, AIRun } from "@/lib/types";
 import { getAIRunById, listAIProviders, saveAIRun } from "@/lib/repository";
 
@@ -31,10 +31,45 @@ export function decryptSecret(value: string) {
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
 }
 
-function discoveryPrompt(limit: number) {
+function discoveryScope(criteria: DiscoveryCriteria) {
+  const lines: string[] = [];
+  if (criteria.market) lines.push(`- Market / industry focus: ${criteria.market}`);
+  if (criteria.yearFrom || criteria.yearTo) {
+    if (criteria.yearFrom && criteria.yearTo) {
+      lines.push(`- Release years: ${criteria.yearFrom} to ${criteria.yearTo} (inclusive)`);
+    } else if (criteria.yearFrom) {
+      lines.push(`- Release years: from ${criteria.yearFrom} onward`);
+    } else {
+      lines.push(`- Release years: up to ${criteria.yearTo}`);
+    }
+  } else {
+    lines.push("- Release window: officially released in the last seven days (default)");
+  }
+  if (criteria.language) lines.push(`- Primary language: ${criteria.language}`);
+  if (criteria.genre) lines.push(`- Genre focus: ${criteria.genre}`);
+  if (criteria.category) lines.push(`- Category focus: ${criteria.category}`);
+  if (criteria.artist) lines.push(`- Artist / collaborator focus: ${criteria.artist}`);
+  if (criteria.keywords) lines.push(`- Keywords / themes: ${criteria.keywords}`);
+  if (criteria.notes) lines.push(`- Extra editorial notes: ${criteria.notes}`);
+  return lines.join("\n");
+}
+
+function discoveryPrompt(limit: number, criteria: DiscoveryCriteria) {
+  const scope = discoveryScope(criteria);
+  const yearHint =
+    criteria.yearFrom || criteria.yearTo
+      ? "Prefer songs matching the year range above."
+      : "Prefer songs officially released in the last seven days unless the criteria say otherwise.";
+
   return `You are a music metadata and meaning research assistant for Lyranta.
-Find up to ${limit} songs officially released in the last seven days.
+Find up to ${limit} songs that match the research brief below.
 Use only official artist, label, movie studio, music platform, or rights-holder sources.
+
+Research brief:
+${scope || "- No extra filters; discover notable recent official releases."}
+
+${yearHint}
+If the market is Bollywood, Tollywood, Kollywood, or similar, prioritize film soundtrack and official label releases from that industry.
 
 Return the most COMPLETE catalog draft possible for editorial review.
 Every object MUST follow this JSON shape:
@@ -48,6 +83,7 @@ Rules:
 - lyricEditions describe which language versions editors should prepare later, with source notes — never include lyric text, excerpts, reconstructions, or fan transcriptions.
 - Do NOT return lyrics, lyric excerpts, paraphrased verses, rumors, or inferred private credits.
 - Every item needs one directly supporting officialSourceUrl.
+- Prefer results that match the research brief filters when they conflict with generic recent hits.
 - Respond with a JSON array only.`;
 }
 
@@ -136,17 +172,21 @@ async function callCompatible(provider: AIProvider, apiKey: string, prompt: stri
 }
 
 /** Create a queued run immediately so the admin request can return without waiting on the provider. */
-export async function enqueueDiscoveryRun() {
+export async function enqueueDiscoveryRun(criteria: DiscoveryCriteria = {}) {
   const provider = (await listAIProviders()).find((item) => item.enabled);
   if (!provider) throw new Error("No enabled AI provider is configured");
 
+  const brief = formatDiscoveryCriteria(criteria);
   const run: AIRun = {
     id: randomUUID(),
     providerId: provider.id,
     status: "queued",
     source: "manual",
-    summary: "Queued — research will start in the background…",
+    summary: brief
+      ? `Queued — researching ${brief}…`
+      : "Queued — research will start in the background…",
     candidates: 0,
+    details: serializeRunDetails([], criteria),
     createdAt: new Date().toISOString(),
   };
   await saveAIRun(run);
@@ -158,10 +198,14 @@ export async function executeDiscoveryRun(runId: string) {
   const existing = await getAIRunById(runId);
   if (!existing) return;
 
+  const { criteria = {} } = parseRunPayload(existing.details);
+  const brief = formatDiscoveryCriteria(criteria);
   const run: AIRun = {
     ...existing,
     status: "running",
-    summary: "Researching official music sources…",
+    summary: brief
+      ? `Researching ${brief}…`
+      : "Researching official music sources…",
   };
   await saveAIRun(run);
 
@@ -172,7 +216,7 @@ export async function executeDiscoveryRun(runId: string) {
     run.providerId = provider.id;
     const apiKey = decryptSecret(provider.encryptedApiKey);
     const candidateLimit = Math.min(20, Math.max(1, provider.dailyLimit));
-    const prompt = discoveryPrompt(candidateLimit);
+    const prompt = discoveryPrompt(candidateLimit, criteria);
     const text =
       provider.provider === "gemini"
         ? await callGemini(provider, apiKey, prompt)
@@ -183,19 +227,24 @@ export async function executeDiscoveryRun(runId: string) {
     const discoveries = parseDiscovery(text, candidateLimit);
     if (!discoveries.length) {
       run.status = "failed";
-      run.summary = "The provider responded, but no valid metadata candidates were found.";
-      run.details = text.slice(0, 4000);
+      run.summary = brief
+        ? `No valid candidates found for ${brief}.`
+        : "The provider responded, but no valid metadata candidates were found.";
+      run.details = serializeRunDetails([], criteria, { rawResponse: text.slice(0, 4000) });
       run.candidates = 0;
     } else {
       run.status = "needs_review";
       run.candidates = discoveries.length;
-      run.summary = `Found ${discoveries.length} metadata candidate${discoveries.length === 1 ? "" : "s"} for editorial review.`;
-      run.details = serializeRunDetails(discoveries);
+      run.summary = brief
+        ? `Found ${discoveries.length} candidate${discoveries.length === 1 ? "" : "s"} for ${brief}.`
+        : `Found ${discoveries.length} metadata candidate${discoveries.length === 1 ? "" : "s"} for editorial review.`;
+      run.details = serializeRunDetails(discoveries, criteria);
     }
   } catch (error) {
     run.status = "failed";
     run.summary = providerErrorMessage(error);
     run.candidates = 0;
+    run.details = serializeRunDetails([], criteria);
   }
   run.finishedAt = new Date().toISOString();
   await saveAIRun(run);
@@ -203,7 +252,7 @@ export async function executeDiscoveryRun(runId: string) {
 }
 
 /** @deprecated Prefer enqueueDiscoveryRun + executeDiscoveryRun for non-blocking admin UX. */
-export async function runDiscoveryAgent() {
-  const run = await enqueueDiscoveryRun();
+export async function runDiscoveryAgent(criteria: DiscoveryCriteria = {}) {
+  const run = await enqueueDiscoveryRun(criteria);
   return executeDiscoveryRun(run.id);
 }

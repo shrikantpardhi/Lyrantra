@@ -14,7 +14,10 @@ import { encryptSecret, enqueueDiscoveryRun, executeDiscoveryRun } from "@/lib/a
 import {
   ensureDescription,
   finalizeRunStatus,
+  formatDiscoveryCriteria,
+  normalizeDiscoveryCriteria,
   parseRunDetails,
+  parseRunPayload,
   serializeRunDetails,
   toSongInterpretation,
   toSongLyricPlaceholders,
@@ -386,10 +389,37 @@ export async function deleteProviderAction(formData: FormData) {
   redirect("/admin/ai?notice=Provider%20removed");
 }
 
-export async function runAIAction() {
+export async function runAIAction(formData: FormData) {
   await requireAdmin();
   const { after } = await import("next/server");
-  const run = await enqueueDiscoveryRun();
+  const currentYear = new Date().getFullYear();
+  const yearFromRaw = String(formData.get("yearFrom") || "").trim();
+  const yearToRaw = String(formData.get("yearTo") || "").trim();
+  const yearFrom = yearFromRaw ? Number(yearFromRaw) : undefined;
+  const yearTo = yearToRaw ? Number(yearToRaw) : undefined;
+  if (yearFrom !== undefined && (!Number.isInteger(yearFrom) || yearFrom < 1900 || yearFrom > currentYear + 2)) {
+    throw new Error("Year from must be a valid release year");
+  }
+  if (yearTo !== undefined && (!Number.isInteger(yearTo) || yearTo < 1900 || yearTo > currentYear + 2)) {
+    throw new Error("Year to must be a valid release year");
+  }
+  if (yearFrom !== undefined && yearTo !== undefined && yearFrom > yearTo) {
+    throw new Error("Year from cannot be after year to");
+  }
+
+  const criteria = normalizeDiscoveryCriteria({
+    market: formData.get("market"),
+    yearFrom,
+    yearTo,
+    language: formData.get("language"),
+    genre: formData.get("genre"),
+    category: formData.get("category"),
+    artist: formData.get("artist"),
+    keywords: formData.get("keywords"),
+    notes: formData.get("notes"),
+  });
+
+  const run = await enqueueDiscoveryRun(criteria);
   after(async () => {
     try {
       await executeDiscoveryRun(run.id);
@@ -399,7 +429,12 @@ export async function runAIAction() {
   });
   revalidatePath("/admin/ai");
   revalidatePath("/admin");
-  redirect("/admin/ai?notice=Research%20started%20in%20the%20background");
+  const brief = formatDiscoveryCriteria(criteria);
+  redirect(
+    `/admin/ai?notice=${encodeURIComponent(
+      brief ? `Research started for ${brief}` : "Research started in the background",
+    )}`,
+  );
 }
 
 async function resolveArtistIds(candidate: DiscoveryCandidate) {
@@ -463,7 +498,7 @@ async function persistCandidateDecision(
 ) {
   const run = await getAIRunById(runId);
   if (!run) throw new Error("Research run not found");
-  const candidates = parseRunDetails(run.details);
+  const { candidates, criteria } = parseRunPayload(run.details);
   const candidate = candidates[index];
   if (!candidate) throw new Error("Candidate not found");
   if (candidate.reviewStatus !== "pending") throw new Error("This candidate was already reviewed");
@@ -476,7 +511,7 @@ async function persistCandidateDecision(
   const pending = candidates.filter((item) => item.reviewStatus === "pending").length;
   const accepted = candidates.filter((item) => item.reviewStatus === "accepted").length;
   const rejected = candidates.filter((item) => item.reviewStatus === "rejected").length;
-  run.details = serializeRunDetails(candidates);
+  run.details = serializeRunDetails(candidates, criteria);
   run.status = finalizeRunStatus(candidates);
   run.summary =
     run.status === "completed"

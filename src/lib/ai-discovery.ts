@@ -54,8 +54,22 @@ export type DiscoveryCandidate = {
   songId?: string;
 };
 
+export type DiscoveryCriteria = {
+  market?: string;
+  yearFrom?: number;
+  yearTo?: number;
+  language?: string;
+  genre?: string;
+  category?: string;
+  artist?: string;
+  keywords?: string;
+  notes?: string;
+};
+
 export type AIRunDetailsPayload = {
+  criteria?: DiscoveryCriteria;
   candidates: DiscoveryCandidate[];
+  rawResponse?: string;
 };
 
 function asTrimmedString(value: unknown) {
@@ -304,29 +318,94 @@ export function parseDiscovery(text: string, limit: number): DiscoveryCandidate[
   }
 }
 
-export function serializeRunDetails(candidates: DiscoveryCandidate[]) {
-  const payload: AIRunDetailsPayload = { candidates };
+export function normalizeDiscoveryCriteria(input: unknown): DiscoveryCriteria {
+  if (!input || typeof input !== "object") return {};
+  const row = input as Record<string, unknown>;
+  const yearFrom = asYear(row.yearFrom);
+  const yearTo = asYear(row.yearTo);
+  return {
+    market: asTrimmedString(row.market) || undefined,
+    yearFrom,
+    yearTo,
+    language: asTrimmedString(row.language) || undefined,
+    genre: asTrimmedString(row.genre) || undefined,
+    category: asTrimmedString(row.category) || undefined,
+    artist: asTrimmedString(row.artist) || undefined,
+    keywords: asTrimmedString(row.keywords) || undefined,
+    notes: asTrimmedString(row.notes) || undefined,
+  };
+}
+
+export function formatDiscoveryCriteria(criteria?: DiscoveryCriteria) {
+  if (!criteria) return "";
+  const parts: string[] = [];
+  if (criteria.market) parts.push(criteria.market);
+  if (criteria.yearFrom || criteria.yearTo) {
+    parts.push(
+      criteria.yearFrom && criteria.yearTo
+        ? `${criteria.yearFrom}–${criteria.yearTo}`
+        : String(criteria.yearFrom || criteria.yearTo),
+    );
+  }
+  if (criteria.language) parts.push(criteria.language);
+  if (criteria.genre) parts.push(criteria.genre);
+  if (criteria.category) parts.push(criteria.category);
+  if (criteria.artist) parts.push(`artist: ${criteria.artist}`);
+  if (criteria.keywords) parts.push(criteria.keywords);
+  return parts.join(" · ");
+}
+
+export function serializeRunDetails(
+  candidates: DiscoveryCandidate[],
+  criteria?: DiscoveryCriteria,
+  extras?: { rawResponse?: string },
+) {
+  const payload: AIRunDetailsPayload = {
+    criteria: criteria && Object.keys(criteria).length ? criteria : undefined,
+    candidates,
+    rawResponse: extras?.rawResponse,
+  };
   return JSON.stringify(payload, null, 2);
 }
 
 export function parseRunDetails(details?: string): DiscoveryCandidate[] {
-  if (!details?.trim()) return [];
+  return parseRunPayload(details).candidates;
+}
+
+export function parseRunCriteria(details?: string): DiscoveryCriteria | undefined {
+  return parseRunPayload(details).criteria;
+}
+
+export function parseRunPayload(details?: string): {
+  candidates: DiscoveryCandidate[];
+  criteria?: DiscoveryCriteria;
+  rawResponse?: string;
+} {
+  if (!details?.trim()) return { candidates: [] };
   try {
     const parsed = JSON.parse(details) as unknown;
     if (Array.isArray(parsed)) {
-      return parsed
-        .map((item) => normalizeCandidate(item))
-        .filter((item): item is DiscoveryCandidate => Boolean(item));
+      return {
+        candidates: parsed
+          .map((item) => normalizeCandidate(item))
+          .filter((item): item is DiscoveryCandidate => Boolean(item)),
+      };
     }
-    if (parsed && typeof parsed === "object" && Array.isArray((parsed as AIRunDetailsPayload).candidates)) {
-      return (parsed as AIRunDetailsPayload).candidates
-        .map((item) => normalizeCandidate(item))
-        .filter((item): item is DiscoveryCandidate => Boolean(item));
+    if (parsed && typeof parsed === "object") {
+      const payload = parsed as AIRunDetailsPayload;
+      const candidates = Array.isArray(payload.candidates)
+        ? payload.candidates
+            .map((item) => normalizeCandidate(item))
+            .filter((item): item is DiscoveryCandidate => Boolean(item))
+        : [];
+      const criteria = payload.criteria ? normalizeDiscoveryCriteria(payload.criteria) : undefined;
+      const rawResponse = asTrimmedString(payload.rawResponse) || undefined;
+      return { candidates, criteria, rawResponse };
     }
   } catch {
-    return [];
+    return { candidates: [] };
   }
-  return [];
+  return { candidates: [] };
 }
 
 export function pendingCandidates(candidates: DiscoveryCandidate[]) {

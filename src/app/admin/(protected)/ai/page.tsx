@@ -10,7 +10,7 @@ import {
 } from "@/app/actions";
 import { AIRunPoller } from "@/components/ai-run-poller";
 import { PendingSubmitButton } from "@/components/ui-feedback";
-import { parseRunDetails } from "@/lib/ai-discovery";
+import { formatDiscoveryCriteria, parseRunDetails, parseRunPayload } from "@/lib/ai-discovery";
 import { listAIProviders, listAIRuns } from "@/lib/repository";
 
 export const maxDuration = 300;
@@ -28,6 +28,7 @@ export default async function AIWorkspace() {
   );
   const canRun = providers.some((provider) => provider.enabled);
   const hasActiveRun = runs.some((run) => run.status === "queued" || run.status === "running");
+  const currentYear = new Date().getFullYear();
 
   return (
     <>
@@ -35,18 +36,8 @@ export default async function AIWorkspace() {
         <div>
           <div className="eyebrow">Admin-initiated research</div>
           <h1>AI workspace</h1>
-          <p>Discovery runs in the background so Studio stays responsive.</p>
+          <p>Set a research brief, then run discovery in the background.</p>
         </div>
-        <form action={runAIAction}>
-          <PendingSubmitButton
-            className="button compact"
-            type="submit"
-            disabled={!canRun || hasActiveRun}
-            pendingLabel="Starting…"
-          >
-            <Play size={15} /> Run discovery now
-          </PendingSubmitButton>
-        </form>
       </header>
       <AIRunPoller active={hasActiveRun} />
       <div className="notice">
@@ -54,6 +45,76 @@ export default async function AIWorkspace() {
         AI returns full catalog metadata, artist bios, links, and a meaning draft for review. It never
         returns lyric text — editors paste authorized lyrics before publish.
       </div>
+
+      <section className="panel" style={{ marginTop: 18 }}>
+        <h2>Research brief</h2>
+        <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 16, lineHeight: 1.6 }}>
+          Tell the agent what to pull — for example Bollywood soundtracks from 2024–2026 in Hindi.
+          Leave years blank to default to the last seven days.
+        </p>
+        <form className="form-grid" action={runAIAction}>
+          <label className="field">
+            <span>Market / industry</span>
+            <select name="market" defaultValue="Bollywood">
+              <option value="">Any / global</option>
+              <option value="Bollywood">Bollywood</option>
+              <option value="Tollywood">Tollywood</option>
+              <option value="Kollywood">Kollywood</option>
+              <option value="Hollywood">Hollywood</option>
+              <option value="K-pop">K-pop</option>
+              <option value="Independent">Independent</option>
+              <option value="Global pop">Global pop</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Language</span>
+            <input name="language" placeholder="Hindi, English, Tamil…" />
+          </label>
+          <label className="field">
+            <span>Year from</span>
+            <input name="yearFrom" type="number" min="1900" max={currentYear + 2} placeholder="e.g. 2024" />
+          </label>
+          <label className="field">
+            <span>Year to</span>
+            <input name="yearTo" type="number" min="1900" max={currentYear + 2} placeholder="e.g. 2026" />
+          </label>
+          <label className="field">
+            <span>Genre</span>
+            <input name="genre" placeholder="Filmi, Pop, Folk…" />
+          </label>
+          <label className="field">
+            <span>Category</span>
+            <select name="category" defaultValue="">
+              <option value="">Any</option>
+              <option value="Soundtrack">Soundtrack</option>
+              <option value="Singles">Singles</option>
+              <option value="Albums">Albums</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Artist focus</span>
+            <input name="artist" placeholder="Optional artist or composer" />
+          </label>
+          <label className="field">
+            <span>Keywords</span>
+            <input name="keywords" placeholder="romantic, monsoon, item song…" />
+          </label>
+          <label className="field full">
+            <span>Extra notes</span>
+            <textarea name="notes" placeholder="Any other research constraints for this run" />
+          </label>
+          <div className="field full" style={{ display: "flex", justifyContent: "flex-end" }}>
+            <PendingSubmitButton
+              className="button compact"
+              type="submit"
+              disabled={!canRun || hasActiveRun}
+              pendingLabel="Starting…"
+            >
+              <Play size={15} /> Run discovery
+            </PendingSubmitButton>
+          </div>
+        </form>
+      </section>
 
       <section className="panel" style={{ marginTop: 18 }}>
         <h2>Needs review</h2>
@@ -147,7 +208,8 @@ export default async function AIWorkspace() {
             Latest 10 only. Status updates to failed, needs review, or completed when the background job finishes.
           </p>
           {runs.map((run) => {
-            const candidates = parseRunDetails(run.details);
+            const { candidates, criteria, rawResponse } = parseRunPayload(run.details);
+            const brief = formatDiscoveryCriteria(criteria);
             return (
               <article className="provider-card" key={run.id} style={{ alignItems: "flex-start" }}>
                 <span style={{ minWidth: 0 }}>
@@ -158,6 +220,11 @@ export default async function AIWorkspace() {
                     {" · "}
                     {run.source} · {run.candidates} candidates
                   </small>
+                  {brief && (
+                    <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                      Brief: {brief}
+                    </p>
+                  )}
                   {candidates.length > 0 && (
                     <ul style={{ marginTop: 12, paddingLeft: 18, fontSize: 12, lineHeight: 1.7 }}>
                       {candidates.map((candidate, index) => (
@@ -179,8 +246,8 @@ export default async function AIWorkspace() {
                       ))}
                     </ul>
                   )}
-                  {run.status === "failed" && run.details && !candidates.length && (
-                    <pre className="code-block" style={{ marginTop: 12 }}>{run.details}</pre>
+                  {run.status === "failed" && rawResponse && !candidates.length && (
+                    <pre className="code-block" style={{ marginTop: 12 }}>{rawResponse}</pre>
                   )}
                 </span>
                 <span className={`status ${run.status}`}>{runStatusLabel(run.status)}</span>
