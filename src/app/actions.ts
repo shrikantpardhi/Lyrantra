@@ -13,6 +13,7 @@ import {
 import { encryptSecret, enqueueDiscoveryRun, executeDiscoveryRun } from "@/lib/ai-agent";
 import {
   ensureDescription,
+  findCatalogDuplicate,
   finalizeRunStatus,
   formatDiscoveryCriteria,
   normalizeDiscoveryCriteria,
@@ -33,8 +34,10 @@ import {
   getAIRunById,
   getSongById,
   listArtists,
+  listCatalogSongsForDedup,
   listMovies,
   moderateComment,
+  resolveUniqueSongSlug,
   saveAIProvider,
   saveAIRun,
   saveArtist,
@@ -537,13 +540,23 @@ export async function acceptAICandidateAction(formData: FormData) {
     redirect(`/admin/ai?notice=${encodeURIComponent("That candidate was already reviewed")}`);
   }
 
+  const catalog = await listCatalogSongsForDedup();
+  const duplicate = findCatalogDuplicate(candidate, catalog);
+  if (duplicate) {
+    redirect(
+      `/admin/ai?notice=${encodeURIComponent(
+        `"${candidate.title}" already exists in the catalog (${duplicate.title}). Reject this candidate or edit the existing song.`,
+      )}`,
+    );
+  }
+
   const artistIds = await resolveArtistIds(candidate);
   const movieId = await resolveMovieId(candidate);
   const description = ensureDescription(candidate);
-  const baseSlug = slugify(candidate.title);
+  const songSlug = await resolveUniqueSongSlug(candidate.title, candidate.releaseYear);
   const song = await saveSong({
     title: candidate.title,
-    slug: `${baseSlug}-${Date.now().toString(36)}`,
+    slug: songSlug,
     alternateTitle: candidate.alternateTitle,
     description,
     releaseYear: candidate.releaseYear,

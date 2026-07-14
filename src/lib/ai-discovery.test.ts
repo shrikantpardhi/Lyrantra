@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  duplicateKeyForCandidate,
+  findCatalogDuplicate,
   parseDiscovery,
   parseRunDetails,
   serializeRunDetails,
@@ -112,5 +114,63 @@ describe("ai discovery parsing", () => {
       languageCode: "en",
       lyricEditions: [{ type: "original" }],
     });
+  });
+
+  it("dedupes repeated candidates within one discovery response", () => {
+    const text = `[
+      {
+        "title": "Harbor Light",
+        "artists": ["Asha"],
+        "releaseYear": 2026,
+        "language": "English",
+        "officialSourceUrl": "https://example.com/song",
+        "description": "Official announcement from the label.",
+        "lyricEditions": [{ "language": "English", "languageCode": "en", "type": "original", "text": "Line one" }]
+      },
+      {
+        "title": "Harbor Light",
+        "artists": ["Asha"],
+        "releaseYear": 2026,
+        "language": "English",
+        "officialSourceUrl": "https://example.com/song-2",
+        "description": "Duplicate entry in the same response.",
+        "lyricEditions": [{ "language": "English", "languageCode": "en", "type": "original", "text": "Line one" }]
+      }
+    ]`;
+    expect(parseDiscovery(text, 5)).toHaveLength(1);
+  });
+
+  it("detects catalog duplicates by title, artists, and year", () => {
+    const candidate = {
+      title: "City Lights",
+      artists: ["The Nova Collective"],
+      releaseYear: 2026,
+    } as Parameters<typeof duplicateKeyForCandidate>[0];
+    const catalog = [
+      {
+        id: "song-1",
+        slug: "city-lights",
+        title: "City Lights",
+        releaseYear: 2026,
+        artists: [{ id: "a1", slug: "nova", name: "The Nova Collective", bio: "" }],
+      },
+    ];
+    expect(findCatalogDuplicate(
+      {
+        ...candidate,
+        artistDetails: [],
+        language: "English",
+        languageCode: "en",
+        category: "Singles",
+        genre: "Pop",
+        tags: [],
+        officialSourceUrl: "https://example.com",
+        description: "Test",
+        platformLinks: [],
+        lyricEditions: [],
+        reviewStatus: "pending",
+      },
+      catalog,
+    )?.id).toBe("song-1");
   });
 });

@@ -725,7 +725,7 @@ function mapAIRun(row: Record<string, unknown>): AIRun {
 }
 
 export async function listAIRuns(limit = 10): Promise<AIRun[]> {
-  const capped = Math.min(50, Math.max(1, limit));
+  const capped = Math.min(200, Math.max(1, limit));
   if (!databaseEnabled) return memory().runs.slice(0, capped);
   const rows = await db()`select * from ai_runs order by created_at desc limit ${capped}`;
   return rows.map((row) => mapAIRun(row as Record<string, unknown>));
@@ -757,6 +757,33 @@ export async function saveAIRun(run: AIRun) {
       details = excluded.details,
       finished_at = excluded.finished_at`;
   }
+}
+
+export async function resolveUniqueSongSlug(
+  title: string,
+  releaseYear: number,
+  excludeId?: string,
+) {
+  const songs = await loadSongs(true);
+  const taken = (slug: string) =>
+    songs.some((song) => song.slug === slug && song.id !== excludeId);
+
+  const baseSlug = slugify(title);
+  if (!taken(baseSlug)) return baseSlug;
+
+  const withYear = `${baseSlug}-${releaseYear}`;
+  if (!taken(withYear)) return withYear;
+
+  for (let suffix = 2; suffix <= 99; suffix += 1) {
+    const candidate = `${baseSlug}-${suffix}`;
+    if (!taken(candidate)) return candidate;
+  }
+
+  return `${baseSlug}-${releaseYear}-alt`;
+}
+
+export async function listCatalogSongsForDedup() {
+  return loadSongs(true);
 }
 
 export { slugify };

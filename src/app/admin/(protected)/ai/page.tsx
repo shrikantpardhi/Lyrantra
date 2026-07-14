@@ -10,22 +10,95 @@ import {
 } from "@/app/actions";
 import { AIRunPoller } from "@/components/ai-run-poller";
 import { PendingSubmitButton } from "@/components/ui-feedback";
-import { formatDiscoveryCriteria, parseRunDetails, parseRunPayload } from "@/lib/ai-discovery";
-import { listAIProviders, listAIRuns } from "@/lib/repository";
+import {
+  duplicateKeyForCandidate,
+  findCatalogDuplicate,
+  formatDiscoveryCriteria,
+  parseRunDetails,
+  parseRunPayload,
+} from "@/lib/ai-discovery";
+import { listAIProviders, listAIRuns, listCatalogSongsForDedup, slugify } from "@/lib/repository";
 
 export const maxDuration = 300;
+
+const REVIEW_PAGE_SIZE = 12;
 
 function runStatusLabel(status: string) {
   return status.replaceAll("_", " ");
 }
 
-export default async function AIWorkspace() {
-  const [providers, runs] = await Promise.all([listAIProviders(), listAIRuns(10)]);
+function truncate(value: string, max = 120) {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
+function AdminPagination({
+  page,
+  pages,
+  basePath = "/admin/ai",
+}: {
+  page: number;
+  pages: number;
+  basePath?: string;
+}) {
+  if (pages <= 1) return null;
+  return (
+    <nav className="pagination" aria-label="Review pagination" style={{ marginTop: 16 }}>
+      {page > 1 ? (
+        <Link href={page === 2 ? basePath : `${basePath}?page=${page - 1}`}>Previous</Link>
+      ) : (
+        <span />
+      )}
+      <span>
+        Page {page} of {pages}
+      </span>
+      {page < pages ? <Link href={`${basePath}?page=${page + 1}`}>Next</Link> : <span />}
+    </nav>
+  );
+}
+
+export default async function AIWorkspace({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; notice?: string }>;
+}) {
+  const query = await searchParams;
+  const page = Math.max(1, Number(query.page) || 1);
+
+  const [providers, runs, catalog] = await Promise.all([
+    listAIProviders(),
+    listAIRuns(200),
+    listCatalogSongsForDedup(),
+  ]);
+
+  const seenQueueKeys = new Set<string>();
   const reviewQueue = runs.flatMap((run) =>
     parseRunDetails(run.details)
-      .map((candidate, index) => ({ run, candidate, index }))
+      .map((candidate, index) => {
+        const key = duplicateKeyForCandidate(candidate);
+        const queueDuplicate = seenQueueKeys.has(key);
+        seenQueueKeys.add(key);
+        const catalogMatch = findCatalogDuplicate(candidate, catalog);
+        return {
+          run,
+          candidate,
+          index,
+          catalogMatch,
+          queueDuplicate,
+          slug: slugify(candidate.title),
+        };
+      })
       .filter(({ candidate }) => candidate.reviewStatus === "pending"),
   );
+
+  const reviewPages = Math.max(1, Math.ceil(reviewQueue.length / REVIEW_PAGE_SIZE));
+  const safePage = Math.min(page, reviewPages);
+  const pageItems = reviewQueue.slice(
+    (safePage - 1) * REVIEW_PAGE_SIZE,
+    safePage * REVIEW_PAGE_SIZE,
+  );
+
   const canRun = providers.some((provider) => provider.enabled);
   const hasActiveRun = runs.some((run) => run.status === "queued" || run.status === "running");
   const currentYear = new Date().getFullYear();
@@ -40,10 +113,15 @@ export default async function AIWorkspace() {
         </div>
       </header>
       <AIRunPoller active={hasActiveRun} />
+      {query.notice && (
+        <div className="notice" style={{ marginTop: 12 }}>
+          {query.notice}
+        </div>
+      )}
       <div className="notice">
         <ShieldCheck size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
         AI returns full catalog metadata, lyrics, artist bios, links, and a meaning draft for review.
-        Accept or reject each candidate — edit the draft before publishing if needed.
+        Accept or reject each candidate — duplicates are blocked from being added again.
       </div>
 
       <section className="panel" style={{ marginTop: 18 }}>
@@ -117,110 +195,144 @@ export default async function AIWorkspace() {
       </section>
 
       <section className="panel" style={{ marginTop: 18 }}>
-        <h2>Needs review</h2>
-        {reviewQueue.length ? (
-          reviewQueue.map(({ run, candidate, index }) => (
-            <article className="provider-card" key={`${run.id}-${index}`} style={{ alignItems: "flex-start" }}>
-              <span style={{ minWidth: 0, flex: 1 }}>
-                <strong>
-                  {candidate.title}
-                  {candidate.alternateTitle ? ` / ${candidate.alternateTitle}` : ""}
-                </strong>
-                <small>
-                  {candidate.artists.join(", ")} · {candidate.releaseYear} · {candidate.language} ({candidate.languageCode})
-                  {" · "}
-                  {candidate.category} · {candidate.genre}
-                  {candidate.movie ? ` · ${candidate.movie}` : ""}
-                </small>
-                <p style={{ marginTop: 10, fontSize: 13, lineHeight: 1.65 }}>{candidate.description}</p>
-                {candidate.tags.length > 0 && (
-                  <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                    Tags: {candidate.tags.join(", ")}
-                  </p>
-                )}
-                {candidate.platformLinks.length > 0 && (
-                  <p style={{ marginTop: 8, fontSize: 12, lineHeight: 1.7 }}>
-                    {candidate.platformLinks.map((link) => (
-                      <span key={`${link.platform}-${link.url}`} style={{ display: "inline-block", marginRight: 12 }}>
-                        <a className="text-link" href={link.url} target="_blank" rel="noreferrer">
-                          {link.platform}
-                        </a>
-                      </span>
-                    ))}
-                  </p>
-                )}
-                {candidate.interpretation && (
-                  <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.65 }}>
-                    <p><strong>Meaning draft:</strong> {candidate.interpretation.summary}</p>
-                    {candidate.interpretation.themes.length > 0 && (
-                      <p className="muted" style={{ marginTop: 6 }}>
-                        Themes: {candidate.interpretation.themes.join(", ")}
-                      </p>
-                    )}
-                    {candidate.interpretation.culturalContext && (
-                      <p style={{ marginTop: 6 }}>{candidate.interpretation.culturalContext}</p>
-                    )}
-                    {candidate.interpretation.sections.length > 0 && (
-                      <ul style={{ marginTop: 8, paddingLeft: 18 }}>
-                        {candidate.interpretation.sections.map((section) => (
-                          <li key={`${section.label}-${section.meaning.slice(0, 24)}`}>
-                            <strong>{section.label}:</strong> {section.meaning}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-                {candidate.lyricEditions.some((edition) => edition.text) && (
-                  <div style={{ marginTop: 12 }}>
-                    {candidate.lyricEditions.map((edition) => (
-                      <div key={`${edition.language}-${edition.type}`} style={{ marginBottom: 12 }}>
-                        <p style={{ fontSize: 12, marginBottom: 6 }}>
-                          <strong>
-                            {edition.language} ({edition.type})
-                          </strong>
-                        </p>
-                        {edition.text ? (
-                          <pre
-                            className="code-block"
-                            style={{ fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", maxHeight: 280, overflow: "auto" }}
-                          >
-                            {edition.text}
-                          </pre>
-                        ) : (
-                          <p className="muted" style={{ fontSize: 12 }}>No lyric text returned for this edition.</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="muted" style={{ marginTop: 10, fontSize: 11 }}>
-                  Lyric editions:{" "}
-                  {candidate.lyricEditions.map((edition) => `${edition.language} (${edition.type})`).join(", ")}
-                  {" · "}
-                  Run {new Date(run.createdAt).toLocaleString()}
-                </p>
-              </span>
-              <span className="row-actions" style={{ flexDirection: "column", alignItems: "stretch" }}>
-                <form action={acceptAICandidateAction}>
-                  <input type="hidden" name="runId" value={run.id} />
-                  <input type="hidden" name="index" value={String(index)} />
-                  <PendingSubmitButton className="button compact" type="submit" style={{ width: "100%" }} pendingLabel="Creating…">
-                    <Check size={14} /> Accept draft
-                  </PendingSubmitButton>
-                </form>
-                <form action={rejectAICandidateAction}>
-                  <input type="hidden" name="runId" value={run.id} />
-                  <input type="hidden" name="index" value={String(index)} />
-                  <PendingSubmitButton type="submit" aria-label={`Reject ${candidate.title}`} pendingLabel="Rejecting…">
-                    <X size={12} /> Reject
-                  </PendingSubmitButton>
-                </form>
-              </span>
-            </article>
-          ))
+        <div className="admin-heading" style={{ marginBottom: 12 }}>
+          <div>
+            <h2>Needs review</h2>
+            <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              {reviewQueue.length} candidate{reviewQueue.length === 1 ? "" : "s"} waiting
+            </p>
+          </div>
+        </div>
+        {pageItems.length ? (
+          <>
+            <div style={{ overflowX: "auto" }}>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Artists</th>
+                    <th>Year</th>
+                    <th>Language</th>
+                    <th>Slug</th>
+                    <th>Lyrics</th>
+                    <th>Catalog</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageItems.map(({ run, candidate, index, catalogMatch, queueDuplicate, slug }) => {
+                    const lyricPreview = candidate.lyricEditions.find((edition) => edition.text)?.text || "";
+                    const isDuplicate = Boolean(catalogMatch) || queueDuplicate;
+                    return (
+                      <tr key={`${run.id}-${index}`}>
+                        <td>
+                          <strong>{candidate.title}</strong>
+                          {candidate.alternateTitle && (
+                            <>
+                              <br />
+                              <span className="muted">{candidate.alternateTitle}</span>
+                            </>
+                          )}
+                          <br />
+                          <span className="muted">
+                            {candidate.category} · {candidate.genre}
+                            {candidate.movie ? ` · ${candidate.movie}` : ""}
+                          </span>
+                        </td>
+                        <td>{candidate.artists.join(", ")}</td>
+                        <td>{candidate.releaseYear}</td>
+                        <td>{candidate.language}</td>
+                        <td>
+                          <code style={{ fontSize: 11 }}>{slug}</code>
+                        </td>
+                        <td>
+                          {lyricPreview ? (
+                            <span title={lyricPreview}>{truncate(lyricPreview, 80)}</span>
+                          ) : (
+                            <span className="muted">Missing</span>
+                          )}
+                        </td>
+                        <td>
+                          {catalogMatch ? (
+                            <span className="status failed">In catalog</span>
+                          ) : queueDuplicate ? (
+                            <span className="status needs_review">Duplicate run</span>
+                          ) : (
+                            <span className="status published">New</span>
+                          )}
+                        </td>
+                        <td>
+                          <details style={{ minWidth: 220 }}>
+                            <summary className="text-link" style={{ cursor: "pointer", fontSize: 12 }}>
+                              Review
+                            </summary>
+                            <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.65, maxWidth: 420 }}>
+                              <p>{candidate.description}</p>
+                              {candidate.interpretation && (
+                                <p style={{ marginTop: 8 }}>
+                                  <strong>Meaning:</strong> {truncate(candidate.interpretation.summary, 240)}
+                                </p>
+                              )}
+                              {candidate.lyricEditions.some((edition) => edition.text) && (
+                                <pre
+                                  className="code-block"
+                                  style={{
+                                    marginTop: 8,
+                                    fontSize: 11,
+                                    lineHeight: 1.6,
+                                    whiteSpace: "pre-wrap",
+                                    maxHeight: 200,
+                                    overflow: "auto",
+                                  }}
+                                >
+                                  {candidate.lyricEditions.find((edition) => edition.text)?.text}
+                                </pre>
+                              )}
+                              {catalogMatch && (
+                                <p style={{ marginTop: 8 }}>
+                                  <Link className="text-link" href={`/admin/songs/${catalogMatch.id}/edit`}>
+                                    Open existing song
+                                  </Link>
+                                </p>
+                              )}
+                              <div className="row-actions" style={{ marginTop: 10 }}>
+                                <form action={acceptAICandidateAction}>
+                                  <input type="hidden" name="runId" value={run.id} />
+                                  <input type="hidden" name="index" value={String(index)} />
+                                  <PendingSubmitButton
+                                    className="button compact"
+                                    type="submit"
+                                    disabled={isDuplicate}
+                                    pendingLabel="Creating…"
+                                  >
+                                    <Check size={14} /> Accept
+                                  </PendingSubmitButton>
+                                </form>
+                                <form action={rejectAICandidateAction}>
+                                  <input type="hidden" name="runId" value={run.id} />
+                                  <input type="hidden" name="index" value={String(index)} />
+                                  <PendingSubmitButton
+                                    type="submit"
+                                    aria-label={`Reject ${candidate.title}`}
+                                    pendingLabel="Rejecting…"
+                                  >
+                                    <X size={12} /> Reject
+                                  </PendingSubmitButton>
+                                </form>
+                              </div>
+                            </div>
+                          </details>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <AdminPagination page={safePage} pages={reviewPages} />
+          </>
         ) : (
-          <p className="muted">No candidates waiting. Run discovery to collect official metadata for review.</p>
+          <p className="muted">No candidates waiting. Run discovery to collect metadata for review.</p>
         )}
       </section>
 
@@ -228,9 +340,9 @@ export default async function AIWorkspace() {
         <section className="panel">
           <h2>Research runs</h2>
           <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 14 }}>
-            Latest 10 only. Status updates to failed, needs review, or completed when the background job finishes.
+            Latest runs. Status updates when the background job finishes.
           </p>
-          {runs.map((run) => {
+          {runs.slice(0, 10).map((run) => {
             const { candidates, criteria, rawResponse } = parseRunPayload(run.details);
             const brief = formatDiscoveryCriteria(criteria);
             return (
@@ -254,7 +366,9 @@ export default async function AIWorkspace() {
                         <li key={`${run.id}-list-${index}`}>
                           {candidate.title}
                           {" · "}
-                          <span className={`status ${candidate.reviewStatus === "pending" ? "needs_review" : candidate.reviewStatus === "accepted" ? "completed" : "failed"}`}>
+                          <span
+                            className={`status ${candidate.reviewStatus === "pending" ? "needs_review" : candidate.reviewStatus === "accepted" ? "completed" : "failed"}`}
+                          >
                             {candidate.reviewStatus}
                           </span>
                           {candidate.songId && (
@@ -270,7 +384,9 @@ export default async function AIWorkspace() {
                     </ul>
                   )}
                   {run.status === "failed" && rawResponse && !candidates.length && (
-                    <pre className="code-block" style={{ marginTop: 12 }}>{rawResponse}</pre>
+                    <pre className="code-block" style={{ marginTop: 12 }}>
+                      {rawResponse}
+                    </pre>
                   )}
                 </span>
                 <span className={`status ${run.status}`}>{runStatusLabel(run.status)}</span>
@@ -297,7 +413,11 @@ export default async function AIWorkspace() {
                   <form action={toggleProviderAction}>
                     <input type="hidden" name="id" value={provider.id} />
                     <input type="hidden" name="enabled" value={String(!provider.enabled)} />
-                    <PendingSubmitButton type="submit" aria-label={provider.enabled ? "Pause provider" : "Enable provider"} pendingLabel="…">
+                    <PendingSubmitButton
+                      type="submit"
+                      aria-label={provider.enabled ? "Pause provider" : "Enable provider"}
+                      pendingLabel="…"
+                    >
                       {provider.enabled ? <Pause size={12} /> : <Play size={12} />}
                     </PendingSubmitButton>
                   </form>

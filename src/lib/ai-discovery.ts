@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DEFAULT_INTERPRETATION_DISCLAIMER } from "@/lib/interpretation";
-import type { PlatformLink, SongInterpretation } from "@/lib/types";
+import { slugify } from "@/lib/repository";
+import type { PlatformLink, Song, SongInterpretation } from "@/lib/types";
 
 export type DiscoveryPlatformLink = {
   platform: string;
@@ -336,6 +337,57 @@ function normalizeCandidate(item: unknown): DiscoveryCandidate | undefined {
   };
 }
 
+type SongDuplicateLookup = Pick<Song, "id" | "slug" | "title" | "releaseYear" | "artists">;
+
+function normalizeDuplicateToken(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase()
+    .trim();
+}
+
+export function duplicateKeyForCandidate(
+  candidate: Pick<DiscoveryCandidate, "title" | "artists" | "releaseYear">,
+) {
+  return [
+    normalizeDuplicateToken(candidate.title),
+    candidate.releaseYear,
+    [...candidate.artists].map((artist) => normalizeDuplicateToken(artist)).sort().join("\0"),
+  ].join("\0");
+}
+
+export function duplicateKeyForSong(song: SongDuplicateLookup) {
+  return duplicateKeyForCandidate({
+    title: song.title,
+    artists: song.artists.map((artist) => artist.name),
+    releaseYear: song.releaseYear,
+  });
+}
+
+export function findCatalogDuplicate(
+  candidate: DiscoveryCandidate,
+  catalog: SongDuplicateLookup[],
+): SongDuplicateLookup | undefined {
+  const candidateKey = duplicateKeyForCandidate(candidate);
+  const candidateSlug = slugify(candidate.title);
+  return catalog.find(
+    (song) => song.slug === candidateSlug || duplicateKeyForSong(song) === candidateKey,
+  );
+}
+
+function dedupeDiscoveryBatch(candidates: DiscoveryCandidate[]) {
+  const seen = new Set<string>();
+  const unique: DiscoveryCandidate[] = [];
+  for (const candidate of candidates) {
+    const key = duplicateKeyForCandidate(candidate);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(candidate);
+  }
+  return unique;
+}
+
 /** Extract a JSON array from model output (plain JSON or fenced markdown). */
 export function parseDiscovery(text: string, limit: number): DiscoveryCandidate[] {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -346,11 +398,13 @@ export function parseDiscovery(text: string, limit: number): DiscoveryCandidate[
   try {
     const parsed = JSON.parse(source.slice(start, end + 1)) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item) => normalizeCandidate(item))
-      .filter((item): item is DiscoveryCandidate => Boolean(item))
-      .slice(0, limit)
-      .map((item) => ({ ...item, reviewStatus: "pending" as const, songId: undefined }));
+    return dedupeDiscoveryBatch(
+      parsed
+        .map((item) => normalizeCandidate(item))
+        .filter((item): item is DiscoveryCandidate => Boolean(item))
+        .slice(0, limit)
+        .map((item) => ({ ...item, reviewStatus: "pending" as const, songId: undefined })),
+    );
   } catch {
     return [];
   }
