@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BookOpenText, Globe2, Headphones, Search, Sparkles, Tags } from "lucide-react";
 import { ArtistCard, SongGrid } from "@/components/site";
-import { getFacets, listArtists, listSongs, slugify } from "@/lib/repository";
+import { getFacets, listFeaturedArtists, listSongs, slugify } from "@/lib/repository";
 import { getSiteUrl } from "@/lib/site-url";
 
 export const metadata: Metadata = {
@@ -18,12 +18,11 @@ export default async function LocaleHome({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const [{ items: songs }, artists, facets] = await Promise.all([
-    listSongs({ limit: 6 }),
-    listArtists(),
+  const [{ items: songs }, featuredArtists, facets] = await Promise.all([
+    listSongs({ limit: 6, sort: "trending" }),
+    listFeaturedArtists(8),
     getFacets(),
   ]);
-  const featuredArtists = artists.slice(0, 8);
   const siteUrl = getSiteUrl();
 
   return (

@@ -17,8 +17,9 @@ editorial studio, and human-reviewed AI metadata discovery.
 - Admin-initiated AI metadata research through Gemini, OpenAI, or compatible providers
 - Canonicals, `hreflang`, sitemaps, robots rules, structured data, and security headers
 
-AI discovery intentionally collects metadata only. It does not fetch or generate copyrighted lyrics,
-and every candidate remains unpublished until editorial review.
+AI discovery returns catalog metadata, lyrics drafts, and meaning for **admin review**.
+Candidates stay unpublished until an editor accepts and publishes them. Catalog duplicates
+are auto-rejected when a run finishes.
 
 ## Local development
 
@@ -27,12 +28,24 @@ Requirements: Node.js 22 and npm.
 ```bash
 cp .env.example .env.local
 npm install
+npm run db:migrate   # if using PostgreSQL
+ALLOW_SEED=true npm run db:seed
 npm run dev
 ```
 
 Open `http://localhost:3000`. Without `DATABASE_URL`, Lyranta uses a non-persistent demonstration
-catalog. Local Studio credentials default to `admin@lyranta.local` / `lyranta-demo`; set explicit
-credentials before sharing an environment.
+catalog. Studio login: set `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env.local` (demo defaults may apply
+locally only).
+
+### Studio
+
+- `/admin/login` — sign in
+- `/admin/songs` — catalog with filters
+- `/admin/artists` — artist directory (optional featured flag)
+- `/admin/ai` — research brief, review table, delete runs
+- `/admin/comments` — moderation queue (also on overview)
+
+Publishing a song requires lyric text, at least one artist, and meaning status **published**.
 
 ## PostgreSQL
 

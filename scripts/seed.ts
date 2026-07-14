@@ -21,10 +21,10 @@ async function main() {
 
   await sql.begin(async (tx) => {
     for (const artist of seedArtists) {
-      await tx`insert into artists (id, slug, name, bio, image)
-        values (${artist.id}, ${artist.slug}, ${artist.name}, ${artist.bio}, ${artist.image ?? null})
+      await tx`insert into artists (id, slug, name, bio, image, featured)
+        values (${artist.id}, ${artist.slug}, ${artist.name}, ${artist.bio}, ${artist.image ?? null}, ${Boolean(artist.featured)})
         on conflict (id) do update set slug = excluded.slug, name = excluded.name,
-          bio = excluded.bio, image = excluded.image`;
+          bio = excluded.bio, image = excluded.image, featured = excluded.featured`;
     }
     for (const movie of seedMovies) {
       await tx`insert into movies (id, slug, title, year, description)
@@ -36,14 +36,14 @@ async function main() {
       await tx`insert into songs (
         id, slug, title, alternate_title, description, release_year, language,
         category, genre, tags, movie_id, artwork, lyrics, platform_links,
-        interpretation, status, featured, views, created_at, updated_at
+        interpretation, status, featured, views, views_7d, created_at, updated_at
       ) values (
         ${song.id}, ${song.slug}, ${song.title}, ${song.alternateTitle ?? null},
         ${song.description}, ${song.releaseYear}, ${song.language}, ${song.category},
         ${song.genre}, ${song.tags}, ${song.movieId ?? null}, ${song.artwork ?? null},
         ${tx.json(song.lyrics)}, ${tx.json(song.platformLinks)},
         ${song.interpretation ? tx.json(song.interpretation) : null}, ${song.status},
-        ${Boolean(song.featured)}, ${song.views}, ${song.createdAt}, ${song.updatedAt}
+        ${Boolean(song.featured)}, ${song.views}, ${song.views7d}, ${song.createdAt}, ${song.updatedAt}
       ) on conflict (id) do update set
         slug = excluded.slug, title = excluded.title, alternate_title = excluded.alternate_title,
         description = excluded.description, release_year = excluded.release_year,
@@ -51,7 +51,7 @@ async function main() {
         tags = excluded.tags, movie_id = excluded.movie_id, artwork = excluded.artwork,
         lyrics = excluded.lyrics, platform_links = excluded.platform_links,
         interpretation = excluded.interpretation, status = excluded.status,
-        featured = excluded.featured, views = excluded.views,
+        featured = excluded.featured, views = excluded.views, views_7d = excluded.views_7d,
         updated_at = excluded.updated_at`;
       await tx`delete from song_artists where song_id = ${song.id}`;
       for (const [sortOrder, artistId] of song.artistIds.entries()) {

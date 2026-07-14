@@ -96,6 +96,7 @@ export function SongEditor({
       <label className="field"><span>Category</span><input name="category" required defaultValue={song?.category ?? "New releases"} /></label>
       <label className="field"><span>Genre</span><input name="genre" required defaultValue={song?.genre ?? "Pop"} /></label>
       <label className="field"><span>Tags, comma separated</span><input name="tags" defaultValue={song?.tags.join(", ")} /></label>
+      <label className="field full"><span>Artwork HTTPS URL</span><input name="artwork" type="url" placeholder="https://…" defaultValue={song?.artwork} /></label>
       <label className="field"><span>Movie / collection</span>
         <select name="movieId" defaultValue={song?.movieId ?? ""}>
           <option value="">No movie</option>
@@ -110,6 +111,9 @@ export function SongEditor({
           <option value="archived">Archived</option>
         </select>
       </label>
+      <p className="muted field full" style={{ fontSize: 12, marginTop: -8 }}>
+        Publishing requires lyric text, at least one artist, and meaning status set to published.
+      </p>
       <ArtistMultiSelect artists={artists} initialSelectedIds={song?.artistIds ?? []} />
       <label className="checkbox field full" style={{ display: "flex" }}>
         <input name="featured" type="checkbox" defaultChecked={song?.featured} /> Feature on the home page

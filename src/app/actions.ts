@@ -24,7 +24,7 @@ import {
   parseRunPayload,
   serializeRunDetails,
   toSongInterpretation,
-  toSongLyricPlaceholders,
+  toSongLyrics,
   toSongPlatformLinks,
   type DiscoveryCandidate,
 } from "@/lib/ai-discovery";
@@ -236,6 +236,15 @@ export async function saveSongAction(formData: FormData) {
     if (hasContent) interpretation = normalized;
   }
 
+  const artworkRaw = String(formData.get("artwork") || "").trim();
+  const artwork = artworkRaw
+    ? /^https:\/\//i.test(artworkRaw)
+      ? artworkRaw
+      : (() => {
+          throw new Error("Artwork must be an HTTPS URL");
+        })()
+    : undefined;
+
   const input: SongInput = {
     ...parsed.data,
     tags: String(formData.get("tags") || "")
@@ -244,6 +253,7 @@ export async function saveSongAction(formData: FormData) {
       .filter(Boolean),
     artistIds: formData.getAll("artistIds").map(String),
     movieId: String(formData.get("movieId") || "") || undefined,
+    artwork,
     lyrics,
     platformLinks,
     interpretation,
@@ -251,6 +261,13 @@ export async function saveSongAction(formData: FormData) {
   };
   if (!input.artistIds.length) throw new Error("Select at least one artist");
   if (!input.lyrics.length) throw new Error("Add at least one lyric version");
+  if (input.status === "published") {
+    const hasLyricText = input.lyrics.some((lyric) => lyric.text.trim().length > 0);
+    if (!hasLyricText) throw new Error("Published songs need at least one lyric version with text");
+    if (!interpretation || interpretation.status !== "published") {
+      throw new Error("Published songs need a published meaning/interpretation");
+    }
+  }
 
   const song = await saveSong(input, String(formData.get("id") || "") || undefined);
   revalidatePath("/en");
@@ -291,7 +308,12 @@ export async function saveArtistAction(formData: FormData) {
     bio: z.string().trim().min(10).max(2000),
   }).parse(Object.fromEntries(formData));
   const artist = await saveArtist(
-    { name: input.name, slug: input.slug, bio: input.bio },
+    {
+      name: input.name,
+      slug: input.slug,
+      bio: input.bio,
+      featured: formData.get("featured") === "on",
+    },
     String(formData.get("id") || "") || undefined,
   );
   revalidatePath("/admin/artists");
@@ -332,8 +354,9 @@ export async function moderateCommentAction(formData: FormData) {
   const status = String(formData.get("status")) as Comment["status"];
   await moderateComment(String(formData.get("id")), status);
   revalidatePath("/admin/comments");
+  revalidatePath("/admin");
   redirect(
-    `/admin/comments?notice=${encodeURIComponent(
+    `/admin?notice=${encodeURIComponent(
       status === "approved" ? "Comment approved" : "Comment rejected",
     )}`,
   );
@@ -667,7 +690,7 @@ export async function acceptAICandidateAction(formData: FormData) {
     tags: candidate.tags,
     artistIds,
     movieId,
-    lyrics: toSongLyricPlaceholders(candidate),
+    lyrics: toSongLyrics(candidate),
     platformLinks: toSongPlatformLinks(candidate),
     interpretation: toSongInterpretation(candidate),
     status: "draft",
@@ -812,7 +835,7 @@ export async function bulkAcceptAICandidatesAction(formData: FormData) {
         tags: candidate.tags,
         artistIds,
         movieId,
-        lyrics: toSongLyricPlaceholders(candidate),
+        lyrics: toSongLyrics(candidate),
         platformLinks: toSongPlatformLinks(candidate),
         interpretation: toSongInterpretation(candidate),
         status: "draft",

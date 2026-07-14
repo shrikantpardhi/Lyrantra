@@ -169,6 +169,9 @@ export default async function AdminArtists({
                   <span>Biography</span>
                   <textarea name="bio" defaultValue={editArtist.bio} required minLength={10} />
                 </label>
+                <label className="checkbox field full" style={{ display: "flex" }}>
+                  <input name="featured" type="checkbox" defaultChecked={editArtist.featured} /> Feature on the home page
+                </label>
                 <div className="row-actions">
                   <PendingSubmitButton className="button compact" type="submit" pendingLabel="Saving…">
                     Save changes
@@ -195,6 +198,9 @@ export default async function AdminArtists({
               <label className="field full">
                 <span>Biography</span>
                 <textarea name="bio" required minLength={10} />
+              </label>
+              <label className="checkbox field full" style={{ display: "flex" }}>
+                <input name="featured" type="checkbox" /> Feature on the home page
               </label>
               <PendingSubmitButton className="button compact" type="submit" pendingLabel="Adding…">
                 <UserPlus size={15} /> Add artist

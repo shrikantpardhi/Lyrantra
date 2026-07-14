@@ -3,6 +3,7 @@ import {
   DISCOVERY_JSON_SCHEMA,
   formatCatalogExclusions,
   formatDiscoveryCriteria,
+  markCatalogDuplicatesRejected,
   parseDiscovery,
   parseRunPayload,
   serializeRunDetails,
@@ -226,6 +227,7 @@ export async function executeDiscoveryRun(runId: string) {
   await saveAIRun(run);
 
   let providerText = "";
+  const startedAt = Date.now();
   try {
     const provider = (await listAIProviders()).find((item) => item.id === run.providerId && item.enabled)
       || (await listAIProviders()).find((item) => item.enabled);
@@ -242,23 +244,37 @@ export async function executeDiscoveryRun(runId: string) {
           ? await callOpenAI(provider, apiKey, prompt)
           : await callCompatible(provider, apiKey, prompt);
     if (!providerText.trim()) throw new Error("The provider returned an empty response");
-    const discoveries = parseDiscovery(providerText, candidateLimit);
-    if (!discoveries.length) {
-      run.status = "failed";
+    const parsed = parseDiscovery(providerText, candidateLimit);
+    const { candidates, autoRejected } = markCatalogDuplicatesRejected(parsed, catalog);
+    const pendingOnly = candidates.filter((candidate) => candidate.reviewStatus === "pending");
+    const metrics = {
+      durationMs: Date.now() - startedAt,
+      responseChars: providerText.length,
+      catalogExcluded: catalog.length,
+      autoRejectedDuplicates: autoRejected,
+    };
+
+    if (!pendingOnly.length) {
+      run.status = autoRejected > 0 ? "completed" : "failed";
       run.summary = brief
-        ? `No valid candidates found for ${brief} (need lyrics + meaning; catalog duplicates skipped).`
-        : "The provider responded, but no complete candidates (lyrics + meaning) were found.";
-      run.details = serializeRunDetails([], criteria, {
+        ? autoRejected > 0
+          ? `No new candidates for ${brief} — auto-rejected ${autoRejected} catalog duplicate${autoRejected === 1 ? "" : "s"}.`
+          : `No valid candidates found for ${brief} (need lyrics + meaning).`
+        : autoRejected > 0
+          ? `No new candidates — auto-rejected ${autoRejected} catalog duplicate${autoRejected === 1 ? "" : "s"}.`
+          : "No complete candidates (lyrics + meaning) were found.";
+      run.details = serializeRunDetails(candidates, criteria, {
         rawResponse: providerText.slice(0, RAW_RESPONSE_LIMIT),
+        metrics,
       });
-      run.candidates = 0;
+      run.candidates = pendingOnly.length;
     } else {
       run.status = "needs_review";
-      run.candidates = discoveries.length;
+      run.candidates = pendingOnly.length;
       run.summary = brief
-        ? `Found ${discoveries.length} candidate${discoveries.length === 1 ? "" : "s"} for ${brief}.`
-        : `Found ${discoveries.length} metadata candidate${discoveries.length === 1 ? "" : "s"} for editorial review.`;
-      run.details = serializeRunDetails(discoveries, criteria);
+        ? `Found ${pendingOnly.length} candidate${pendingOnly.length === 1 ? "" : "s"} for ${brief}${autoRejected ? ` · auto-rejected ${autoRejected} duplicate${autoRejected === 1 ? "" : "s"}` : ""}.`
+        : `Found ${pendingOnly.length} candidate${pendingOnly.length === 1 ? "" : "s"} for review${autoRejected ? ` · auto-rejected ${autoRejected} duplicate${autoRejected === 1 ? "" : "s"}` : ""}.`;
+      run.details = serializeRunDetails(candidates, criteria, { metrics });
     }
   } catch (error) {
     run.status = "failed";
@@ -266,6 +282,10 @@ export async function executeDiscoveryRun(runId: string) {
     run.candidates = 0;
     run.details = serializeRunDetails([], criteria, {
       rawResponse: providerText.trim() ? providerText.slice(0, RAW_RESPONSE_LIMIT) : undefined,
+      metrics: {
+        durationMs: Date.now() - startedAt,
+        responseChars: providerText.length,
+      },
     });
   }
   run.finishedAt = new Date().toISOString();

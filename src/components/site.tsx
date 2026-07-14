@@ -95,9 +95,22 @@ export function SiteFooter({ locale = "en" }: { locale?: string }) {
 export function SongCard({ song, locale = "en" }: { song: Song; locale?: string }) {
   return (
     <article className="song-card">
-      <Link href={`/${locale}/lyrics/${song.slug}`} className="artwork" aria-label={`${song.title} lyrics`}>
+      <Link
+        href={`/${locale}/lyrics/${song.slug}`}
+        className="artwork"
+        aria-label={`${song.title} lyrics`}
+        style={
+          song.artwork
+            ? {
+                backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.55)), url(${song.artwork})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : undefined
+        }
+      >
         <span className="artwork-glow" />
-        <Music2 size={26} />
+        {!song.artwork && <Music2 size={26} />}
         <small>{song.language}</small>
       </Link>
       <div className="song-card-body">
@@ -119,7 +132,10 @@ export function SongCard({ song, locale = "en" }: { song: Song; locale?: string 
         </p>
         <div className="card-meta">
           <Link href={`/${locale}/genre/${slugify(song.genre)}`}>{song.genre}</Link>
-          <span>{Intl.NumberFormat("en", { notation: "compact" }).format(song.views)} reads</span>
+          <span>
+            {Intl.NumberFormat("en", { notation: "compact" }).format(song.views)} reads
+            {song.views7d > 0 ? ` · ${Intl.NumberFormat("en", { notation: "compact" }).format(song.views7d)} / 7d` : ""}
+          </span>
         </div>
       </div>
     </article>

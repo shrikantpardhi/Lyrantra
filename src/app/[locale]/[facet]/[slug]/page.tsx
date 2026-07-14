@@ -110,7 +110,7 @@ export default async function FacetPage({
   if (facet === "language") filters.language = value;
   if (facet === "tag") filters.tag = value;
   if (facet === "year") filters.year = value;
-  const songs = await listSongs(filters);
+  const songs = await listSongs({ ...filters, sort: "trending" });
   if (page > songs.pages && songs.total > 0) notFound();
 
   const canonicalPath = `/${locale}/${facet}/${slug}`;

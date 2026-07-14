@@ -104,6 +104,7 @@ function rowToSong(
     status: row.status as Song["status"],
     featured: Boolean(row.featured),
     views: Number(row.views ?? 0),
+    views7d: Number(row.views_7d ?? 0),
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
   };
@@ -111,13 +112,14 @@ function rowToSong(
 
 async function loadArtists(): Promise<Artist[]> {
   if (!databaseEnabled) return memory().artists;
-  const rows = await db()`select id, slug, name, bio, image from artists order by name`;
+  const rows = await db()`select id, slug, name, bio, image, featured from artists order by name`;
   return rows.map((row) => ({
     id: String(row.id),
     slug: String(row.slug),
     name: String(row.name),
     bio: String(row.bio ?? ""),
     image: row.image ? String(row.image) : undefined,
+    featured: Boolean(row.featured),
   }));
 }
 
@@ -231,6 +233,12 @@ export async function listSongs(
       ? `ts_rank_cd(s.search_document, websearch_to_tsquery('simple', ${searchParameter})) desc,
          case when lower(s.title) like lower(${searchParameter}) || '%' then 0 else 1 end,`
       : "";
+    const sort =
+      filters.sort === "trending"
+        ? "s.views_7d desc, s.views desc, s.updated_at desc"
+        : filters.sort === "recent"
+          ? "s.updated_at desc, s.views desc"
+          : "s.views desc, s.updated_at desc";
     const sql = db();
     const countRows = await sql.unsafe<Array<{ total: string }>>(
       `select count(*)::text as total from songs s ${where}`,
@@ -239,7 +247,7 @@ export async function listSongs(
     const rowParameters = [...parameters, limit, (page - 1) * limit];
     const songRows = await sql.unsafe<Array<Record<string, unknown>>>(
       `select s.* from songs s ${where}
-       order by ${ranking} s.views desc, s.updated_at desc
+       order by ${ranking} ${sort}
        limit $${rowParameters.length - 1} offset $${rowParameters.length}`,
       rowParameters,
     );
@@ -303,6 +311,13 @@ export async function listSongs(
       const bStarts = normalize(b.title).startsWith(query) ? 1 : 0;
       if (aStarts !== bStarts) return bStarts - aStarts;
     }
+    if (filters.sort === "trending") {
+      if (b.views7d !== a.views7d) return b.views7d - a.views7d;
+      return b.views - a.views;
+    }
+    if (filters.sort === "recent") {
+      return b.updatedAt.localeCompare(a.updatedAt);
+    }
     return b.views - a.views;
   });
 
@@ -332,16 +347,61 @@ export async function incrementSongViews(songId: string) {
     const song = memory().songs.find((item) => item.id === songId);
     if (!song || song.status !== "published") return undefined;
     song.views += 1;
-    return song.views;
+    song.views7d += 1;
+    return { views: song.views, views7d: song.views7d };
   }
-  const rows = await db()`
-    update songs
-    set views = views + 1
-    where id = ${songId} and status = 'published'
-    returning views
-  `;
-  const row = rows[0] as { views?: number | string } | undefined;
-  return row ? Number(row.views) : undefined;
+
+  const sql = db();
+  return sql.begin(async (tx) => {
+    const today = new Date().toISOString().slice(0, 10);
+    await tx`
+      insert into song_view_days (song_id, day, views)
+      values (${songId}, ${today}::date, 1)
+      on conflict (song_id, day) do update set views = song_view_days.views + 1
+    `;
+    const rows = await tx`
+      update songs s
+      set
+        views = s.views + 1,
+        views_7d = (
+          select coalesce(sum(d.views), 0)
+          from song_view_days d
+          where d.song_id = s.id
+            and d.day >= (current_date - 6)
+        )
+      where s.id = ${songId} and s.status = 'published'
+      returning s.views, s.views_7d
+    `;
+    const row = rows[0] as { views?: number | string; views_7d?: number | string } | undefined;
+    if (!row) return undefined;
+    return { views: Number(row.views), views7d: Number(row.views_7d) };
+  });
+}
+
+export async function listFeaturedArtists(limit = 8) {
+  const capped = Math.min(12, Math.max(1, limit));
+  const [artists, songs] = await Promise.all([loadArtists(), loadSongs(true)]);
+  const scored = artists.map((artist) => {
+    const linked = songs.filter((song) => song.artistIds.includes(artist.id));
+    const published = linked.filter((song) => song.status === "published");
+    const views = published.reduce((total, song) => total + song.views, 0);
+    const views7d = published.reduce((total, song) => total + song.views7d, 0);
+    return {
+      artist,
+      songCount: published.length,
+      views,
+      views7d,
+      featured: Boolean(artist.featured),
+    };
+  });
+  scored.sort((a, b) => {
+    if (a.featured !== b.featured) return a.featured ? -1 : 1;
+    if (b.views7d !== a.views7d) return b.views7d - a.views7d;
+    if (b.views !== a.views) return b.views - a.views;
+    if (b.songCount !== a.songCount) return b.songCount - a.songCount;
+    return a.artist.name.localeCompare(b.artist.name);
+  });
+  return scored.slice(0, capped).map((item) => item.artist);
 }
 
 export async function getSongById(id: string) {
@@ -404,7 +464,12 @@ export async function getAdminSongFilterOptions() {
 }
 
 export async function saveArtist(input: Omit<Artist, "id">, id?: string) {
-  const artist: Artist = { ...input, id: id || randomUUID(), slug: input.slug || slugify(input.name) };
+  const artist: Artist = {
+    ...input,
+    id: id || randomUUID(),
+    slug: input.slug || slugify(input.name),
+    featured: Boolean(input.featured),
+  };
   if (!databaseEnabled) {
     const index = memory().artists.findIndex((item) => item.id === artist.id);
     if (index >= 0) memory().artists[index] = artist;
@@ -415,10 +480,10 @@ export async function saveArtist(input: Omit<Artist, "id">, id?: string) {
         .filter((item): item is Artist => Boolean(item));
     });
   } else {
-    await db()`insert into artists (id, slug, name, bio, image)
-      values (${artist.id}, ${artist.slug}, ${artist.name}, ${artist.bio}, ${artist.image ?? null})
+    await db()`insert into artists (id, slug, name, bio, image, featured)
+      values (${artist.id}, ${artist.slug}, ${artist.name}, ${artist.bio}, ${artist.image ?? null}, ${Boolean(artist.featured)})
       on conflict (id) do update set slug = excluded.slug, name = excluded.name,
-        bio = excluded.bio, image = excluded.image, updated_at = now()`;
+        bio = excluded.bio, image = excluded.image, featured = excluded.featured, updated_at = now()`;
   }
   return artist;
 }
@@ -631,6 +696,7 @@ export type SongInput = {
   tags: string[];
   artistIds: string[];
   movieId?: string;
+  artwork?: string;
   lyrics: Song["lyrics"];
   platformLinks: Song["platformLinks"];
   interpretation?: Song["interpretation"];
@@ -657,12 +723,14 @@ export async function saveSong(input: SongInput, id?: string) {
     artists,
     movieId: input.movieId,
     movie: movies.find((movie) => movie.id === input.movieId),
+    artwork: input.artwork || existing?.artwork,
     lyrics: input.lyrics,
     platformLinks: input.platformLinks,
     interpretation: input.interpretation,
     status: input.status,
     featured: input.featured,
     views: existing?.views ?? 0,
+    views7d: existing?.views7d ?? 0,
     createdAt: existing?.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -678,19 +746,20 @@ export async function saveSong(input: SongInput, id?: string) {
   await sql.begin(async (tx) => {
     await tx`insert into songs (
       id, slug, title, alternate_title, description, release_year, language,
-      category, genre, tags, movie_id, lyrics, platform_links, interpretation,
-      status, featured, views
+      category, genre, tags, movie_id, artwork, lyrics, platform_links, interpretation,
+      status, featured, views, views_7d
     ) values (
       ${song.id}, ${song.slug}, ${song.title}, ${song.alternateTitle ?? null}, ${song.description},
       ${song.releaseYear}, ${song.language}, ${song.category}, ${song.genre}, ${song.tags},
-      ${song.movieId ?? null}, ${tx.json(song.lyrics)}, ${tx.json(song.platformLinks)},
+      ${song.movieId ?? null}, ${song.artwork ?? null}, ${tx.json(song.lyrics)}, ${tx.json(song.platformLinks)},
       ${song.interpretation ? tx.json(song.interpretation) : null},
-      ${song.status}, ${Boolean(song.featured)}, ${song.views}
+      ${song.status}, ${Boolean(song.featured)}, ${song.views}, ${song.views7d}
     ) on conflict (id) do update set
       slug = excluded.slug, title = excluded.title, alternate_title = excluded.alternate_title,
       description = excluded.description, release_year = excluded.release_year,
       language = excluded.language, category = excluded.category, genre = excluded.genre,
-      tags = excluded.tags, movie_id = excluded.movie_id, lyrics = excluded.lyrics,
+      tags = excluded.tags, movie_id = excluded.movie_id, artwork = excluded.artwork,
+      lyrics = excluded.lyrics,
       platform_links = excluded.platform_links, interpretation = excluded.interpretation,
       status = excluded.status,
       featured = excluded.featured, updated_at = now()`;
@@ -723,7 +792,80 @@ export async function getDashboardStats() {
     artists: artists.length,
     pendingComments: comments.filter((comment) => comment.status === "pending").length,
     views: songs.reduce((total, song) => total + song.views, 0),
+    views7d: songs.reduce((total, song) => total + song.views7d, 0),
   };
+}
+
+export async function getAdminAnalytics() {
+  const [songs, runs, comments] = await Promise.all([
+    loadSongs(true),
+    listAIRuns(50),
+    getComments(undefined, true),
+  ]);
+  const published = songs.filter((song) => song.status === "published");
+  const topByViews = [...published]
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 8)
+    .map((song) => ({
+      id: song.id,
+      title: song.title,
+      views: song.views,
+      views7d: song.views7d,
+    }));
+  const topTrending = [...published]
+    .sort((a, b) => b.views7d - a.views7d || b.views - a.views)
+    .slice(0, 8)
+    .map((song) => ({
+      id: song.id,
+      title: song.title,
+      views: song.views,
+      views7d: song.views7d,
+    }));
+
+  const marketStats = new Map<string, { accepted: number; rejected: number; pending: number }>();
+  for (const run of runs) {
+    const { candidates, criteria } = parseRunPayloadLazy(run.details);
+    const market = criteria?.market || "Unspecified";
+    const bucket = marketStats.get(market) || { accepted: 0, rejected: 0, pending: 0 };
+    for (const candidate of candidates) {
+      if (candidate.reviewStatus === "accepted") bucket.accepted += 1;
+      else if (candidate.reviewStatus === "rejected") bucket.rejected += 1;
+      else bucket.pending += 1;
+    }
+    marketStats.set(market, bucket);
+  }
+
+  return {
+    topByViews,
+    topTrending,
+    pendingComments: comments.filter((comment) => comment.status === "pending").slice(0, 8),
+    aiMarkets: [...marketStats.entries()]
+      .map(([market, counts]) => ({ market, ...counts }))
+      .sort((a, b) => b.accepted + b.rejected + b.pending - (a.accepted + a.rejected + a.pending))
+      .slice(0, 8),
+  };
+}
+
+function parseRunPayloadLazy(details?: string) {
+  // Local import-free parse to avoid circular deps at module top; uses same shape as ai-discovery.
+  if (!details?.trim()) return { candidates: [] as Array<{ reviewStatus: string }>, criteria: undefined as { market?: string } | undefined };
+  try {
+    const parsed = JSON.parse(details) as {
+      candidates?: Array<{ reviewStatus?: string }>;
+      criteria?: { market?: string };
+    };
+    if (Array.isArray(parsed)) {
+      return { candidates: parsed.map((item) => ({ reviewStatus: item.reviewStatus || "pending" })), criteria: undefined };
+    }
+    return {
+      candidates: (parsed.candidates || []).map((item) => ({
+        reviewStatus: item.reviewStatus || "pending",
+      })),
+      criteria: parsed.criteria,
+    };
+  } catch {
+    return { candidates: [], criteria: undefined };
+  }
 }
 
 export async function listAIProviders(): Promise<AIProvider[]> {

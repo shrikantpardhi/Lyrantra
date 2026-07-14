@@ -9,6 +9,7 @@ export type Artist = {
   name: string;
   bio: string;
   image?: string;
+  featured?: boolean;
 };
 
 export type Movie = {
@@ -71,6 +72,7 @@ export type Song = {
   status: "draft" | "review" | "published" | "archived";
   featured?: boolean;
   views: number;
+  views7d: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -130,6 +132,7 @@ export type SearchFilters = {
   status?: Song["status"];
   page?: number;
   limit?: number;
+  sort?: "views" | "trending" | "recent";
 };
 
 export type Paginated<T> = {

@@ -36,9 +36,12 @@ create table if not exists artists (
   name text not null,
   bio text not null default '',
   image text,
+  featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table artists add column if not exists featured boolean not null default false;
 
 create table if not exists movies (
   id text primary key,
@@ -69,6 +72,7 @@ create table if not exists songs (
   status text not null default 'draft' check (status in ('draft', 'review', 'published', 'archived')),
   featured boolean not null default false,
   views bigint not null default 0,
+  views_7d bigint not null default 0,
   search_document tsvector generated always as (
     lyranta_song_search_document(title, alternate_title, description, tags, lyrics)
   ) stored,
@@ -77,10 +81,21 @@ create table if not exists songs (
 );
 
 alter table songs add column if not exists interpretation jsonb;
+alter table songs add column if not exists views_7d bigint not null default 0;
 
 create index if not exists songs_search_idx on songs using gin(search_document);
 create index if not exists songs_status_idx on songs(status);
 create index if not exists songs_taxonomy_idx on songs(category, genre, language, release_year);
+create index if not exists songs_views_7d_idx on songs(views_7d desc);
+
+create table if not exists song_view_days (
+  song_id text not null references songs(id) on delete cascade,
+  day date not null,
+  views bigint not null default 0,
+  primary key (song_id, day)
+);
+
+create index if not exists song_view_days_day_idx on song_view_days(day);
 
 create table if not exists song_artists (
   song_id text not null references songs(id) on delete cascade,

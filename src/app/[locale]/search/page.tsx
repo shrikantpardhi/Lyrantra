@@ -3,12 +3,6 @@ import { Filter, Search } from "lucide-react";
 import { Pagination, SongGrid } from "@/components/site";
 import { getFacets, listSongs } from "@/lib/repository";
 
-export const metadata: Metadata = {
-  title: "Search and browse lyrics",
-  description: "Search Lyranta by song, artist, movie, lyric text, meaning, language, category, genre, or year.",
-  robots: { index: false, follow: true },
-};
-
 type Query = {
   q?: string;
   category?: string;
@@ -18,6 +12,25 @@ type Query = {
   year?: string;
   page?: string;
 };
+
+function hasActiveFilters(query: Query) {
+  return Boolean(query.q || query.category || query.genre || query.language || query.tag || query.year);
+}
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Query>;
+}): Promise<Metadata> {
+  const query = await searchParams;
+  const filtered = hasActiveFilters(query);
+  return {
+    title: filtered && query.q ? `Search results for “${query.q}”` : "Browse lyrics",
+    description: "Browse Lyranta by song, artist, movie, lyric text, meaning, language, category, genre, or year.",
+    robots: filtered ? { index: false, follow: true } : { index: true, follow: true },
+    alternates: { canonical: "/en/search" },
+  };
+}
 
 export default async function SearchPage({
   params,
@@ -38,6 +51,7 @@ export default async function SearchPage({
       year: query.year,
       page,
       limit: 8,
+      sort: "trending",
     }),
     getFacets(),
   ]);
@@ -67,25 +81,37 @@ export default async function SearchPage({
           </label>
           <select name="category" defaultValue={query.category || ""} aria-label="Filter by category">
             <option value="">All categories</option>
-            {facets.categories.map((value) => <option key={value}>{value}</option>)}
+            {facets.categories.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
           </select>
           <select name="genre" defaultValue={query.genre || ""} aria-label="Filter by genre">
             <option value="">All genres</option>
-            {facets.genres.map((value) => <option key={value}>{value}</option>)}
+            {facets.genres.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
           </select>
           <select name="language" defaultValue={query.language || ""} aria-label="Filter by language">
             <option value="">All languages</option>
-            {facets.languages.map((value) => <option key={value}>{value}</option>)}
+            {facets.languages.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
           </select>
           <select name="tag" defaultValue={query.tag || ""} aria-label="Filter by tag">
             <option value="">All tags</option>
-            {facets.tags.map((value) => <option key={value}>{value}</option>)}
+            {facets.tags.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
           </select>
           <select name="year" defaultValue={query.year || ""} aria-label="Filter by release year">
             <option value="">Any year</option>
-            {facets.years.map((value) => <option key={value}>{value}</option>)}
+            {facets.years.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
           </select>
-          <button className="button compact" type="submit"><Filter size={16} /> Apply</button>
+          <button className="button compact" type="submit">
+            <Filter size={16} /> Apply
+          </button>
         </form>
 
         {query.q && results.total === 0 && (

@@ -72,6 +72,12 @@ export type AIRunDetailsPayload = {
   criteria?: DiscoveryCriteria;
   candidates: DiscoveryCandidate[];
   rawResponse?: string;
+  metrics?: {
+    durationMs?: number;
+    responseChars?: number;
+    catalogExcluded?: number;
+    autoRejectedDuplicates?: number;
+  };
 };
 
 function asTrimmedString(value: unknown) {
@@ -482,12 +488,16 @@ export function formatDiscoveryCriteria(criteria?: DiscoveryCriteria) {
 export function serializeRunDetails(
   candidates: DiscoveryCandidate[],
   criteria?: DiscoveryCriteria,
-  extras?: { rawResponse?: string },
+  extras?: {
+    rawResponse?: string;
+    metrics?: AIRunDetailsPayload["metrics"];
+  },
 ) {
   const payload: AIRunDetailsPayload = {
     criteria: criteria && Object.keys(criteria).length ? criteria : undefined,
     candidates,
     rawResponse: extras?.rawResponse,
+    metrics: extras?.metrics,
   };
   return JSON.stringify(payload, null, 2);
 }
@@ -504,6 +514,7 @@ export function parseRunPayload(details?: string): {
   candidates: DiscoveryCandidate[];
   criteria?: DiscoveryCriteria;
   rawResponse?: string;
+  metrics?: AIRunDetailsPayload["metrics"];
 } {
   if (!details?.trim()) return { candidates: [] };
   try {
@@ -524,12 +535,26 @@ export function parseRunPayload(details?: string): {
         : [];
       const criteria = payload.criteria ? normalizeDiscoveryCriteria(payload.criteria) : undefined;
       const rawResponse = asTrimmedString(payload.rawResponse) || undefined;
-      return { candidates, criteria, rawResponse };
+      return { candidates, criteria, rawResponse, metrics: payload.metrics };
     }
   } catch {
     return { candidates: [] };
   }
   return { candidates: [] };
+}
+
+export function markCatalogDuplicatesRejected(
+  candidates: DiscoveryCandidate[],
+  catalog: Array<Pick<Song, "id" | "slug" | "title" | "releaseYear" | "artists">>,
+) {
+  let autoRejected = 0;
+  const next = candidates.map((candidate) => {
+    if (candidate.reviewStatus !== "pending") return candidate;
+    if (!findCatalogDuplicate(candidate, catalog)) return candidate;
+    autoRejected += 1;
+    return { ...candidate, reviewStatus: "rejected" as const };
+  });
+  return { candidates: next, autoRejected };
 }
 
 export function pendingCandidates(candidates: DiscoveryCandidate[]) {
@@ -577,7 +602,7 @@ export function toSongInterpretation(candidate: DiscoveryCandidate): SongInterpr
   };
 }
 
-export function toSongLyricPlaceholders(candidate: DiscoveryCandidate) {
+export function toSongLyrics(candidate: DiscoveryCandidate) {
   return candidate.lyricEditions.map((edition) => ({
     id: randomUUID(),
     language: edition.language,
@@ -587,6 +612,9 @@ export function toSongLyricPlaceholders(candidate: DiscoveryCandidate) {
     source: edition.sourceNote || candidate.lyricSourceNote || "AI discovery",
   }));
 }
+
+/** @deprecated Use toSongLyrics — name kept for older call sites. */
+export const toSongLyricPlaceholders = toSongLyrics;
 
 export const DISCOVERY_JSON_SCHEMA = `{
   "title": "string",

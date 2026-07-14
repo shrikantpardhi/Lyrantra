@@ -6,7 +6,7 @@ import {
   parseRunDetails,
   serializeRunDetails,
   toSongInterpretation,
-  toSongLyricPlaceholders,
+  toSongLyrics,
   toSongPlatformLinks,
 } from "@/lib/ai-discovery";
 
@@ -58,7 +58,7 @@ describe("ai discovery parsing", () => {
     expect(candidates[0].artistDetails[0]?.bio).toContain("Coastal");
     expect(candidates[0].lyricEditions).toHaveLength(2);
     expect(candidates[0].lyricEditions[0]?.text).toContain("Verse one");
-    expect(toSongLyricPlaceholders(candidates[0])[0]?.text).toContain("Verse one");
+    expect(toSongLyrics(candidates[0])[0]?.text).toContain("Verse one");
     expect(toSongPlatformLinks(candidates[0]).length).toBeGreaterThan(0);
     expect(toSongInterpretation(candidates[0])?.sections).toHaveLength(3);
   });
