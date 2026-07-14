@@ -61,32 +61,36 @@ describe("ai discovery parsing", () => {
   });
 
   it("round-trips review details and keeps legacy arrays readable", () => {
-    const serialized = serializeRunDetails([
-      {
-        title: "Harbor Light",
-        artists: ["Asha"],
-        artistDetails: [{ name: "Asha" }],
-        releaseYear: 2026,
-        language: "English",
-        languageCode: "en",
-        category: "Singles",
-        genre: "Folk",
-        tags: ["ai-discovery"],
-        officialSourceUrl: "https://example.com/song",
-        description: "Official announcement from the label.",
-        platformLinks: [{ platform: "Official source", url: "https://example.com/song" }],
-        lyricEditions: [
-          {
-            language: "English",
-            languageCode: "en",
-            type: "original",
-            sourceNote: "Publisher",
-          },
-        ],
-        reviewStatus: "pending",
-      },
-    ]);
+    const serialized = serializeRunDetails(
+      [
+        {
+          title: "Harbor Light",
+          artists: ["Asha"],
+          artistDetails: [{ name: "Asha" }],
+          releaseYear: 2026,
+          language: "English",
+          languageCode: "en",
+          category: "Singles",
+          genre: "Folk",
+          tags: ["ai-discovery"],
+          officialSourceUrl: "https://example.com/song",
+          description: "Official announcement from the label.",
+          platformLinks: [{ platform: "Official source", url: "https://example.com/song" }],
+          lyricEditions: [
+            {
+              language: "English",
+              languageCode: "en",
+              type: "original",
+              sourceNote: "Publisher",
+            },
+          ],
+          reviewStatus: "pending",
+        },
+      ],
+      { market: "Bollywood", yearFrom: 2024, yearTo: 2026, language: "Hindi" },
+    );
     expect(parseRunDetails(serialized)).toHaveLength(1);
+    expect(JSON.parse(serialized).criteria.market).toBe("Bollywood");
     expect(
       parseRunDetails(
         JSON.stringify([
