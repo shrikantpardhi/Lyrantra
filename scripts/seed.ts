@@ -1,11 +1,22 @@
 import postgres from "postgres";
 import { seedArtists, seedMovies, seedSongs } from "../src/lib/seed-data";
+import { loadEnvFiles } from "./load-env";
 
 async function main() {
+  loadEnvFiles();
+
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+
+  if (process.env.ALLOW_SEED !== "true") {
+    throw new Error(
+      "Refusing to seed without ALLOW_SEED=true. Demo catalog must not be loaded into production accidentally.",
+    );
+  }
+
   const sql = postgres(process.env.DATABASE_URL, {
     ssl: process.env.DATABASE_SSL === "false" ? false : "require",
     max: 1,
+    prepare: false,
   });
 
   await sql.begin(async (tx) => {

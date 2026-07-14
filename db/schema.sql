@@ -1,5 +1,35 @@
 create extension if not exists pgcrypto;
 
+-- Generated tsvector columns require IMMUTABLE expressions; wrap to_tsvector for that.
+create or replace function lyranta_to_tsvector(document text)
+returns tsvector
+language sql
+immutable
+parallel safe
+as $$
+  select to_tsvector('simple'::regconfig, coalesce(document, ''));
+$$;
+
+create or replace function lyranta_song_search_document(
+  title text,
+  alternate_title text,
+  description text,
+  tags text[],
+  lyrics jsonb
+)
+returns tsvector
+language sql
+immutable
+parallel safe
+as $$
+  select
+    setweight(lyranta_to_tsvector(title), 'A') ||
+    setweight(lyranta_to_tsvector(alternate_title), 'A') ||
+    setweight(lyranta_to_tsvector(description), 'B') ||
+    setweight(lyranta_to_tsvector(array_to_string(tags, ' ')), 'B') ||
+    setweight(lyranta_to_tsvector(lyrics::text), 'C');
+$$;
+
 create table if not exists artists (
   id text primary key,
   slug text not null unique,
@@ -40,11 +70,7 @@ create table if not exists songs (
   featured boolean not null default false,
   views bigint not null default 0,
   search_document tsvector generated always as (
-    setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
-    setweight(to_tsvector('simple', coalesce(alternate_title, '')), 'A') ||
-    setweight(to_tsvector('simple', coalesce(description, '')), 'B') ||
-    setweight(to_tsvector('simple', coalesce(array_to_string(tags, ' '), '')), 'B') ||
-    setweight(to_tsvector('simple', coalesce(lyrics::text, '')), 'C')
+    lyranta_song_search_document(title, alternate_title, description, tags, lyrics)
   ) stored,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

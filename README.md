@@ -70,6 +70,29 @@ There is no scheduled or public ingestion endpoint.
 Song interpretations have an independent draft, review, and published state. Publishing a song does
 not expose its interpretation until an editor separately marks that analysis as published.
 
+### Deploy on Vercel + Neon (recommended)
+
+1. Create a Neon project and copy the **pooled** connection string (`*-pooler` host).
+2. Copy `.env.example` to `.env.local`, fill in Neon URL, secrets, and admin credentials.
+3. Apply the schema once:
+
+```bash
+npm run db:migrate
+```
+
+Do **not** run `npm run db:seed` against production unless you intentionally want demo catalog
+data (`ALLOW_SEED=true` is required).
+
+4. Push the repo to GitHub and import it in [Vercel](https://vercel.com).
+5. In Vercel → Project → Settings → Environment Variables, set the same production values as
+   `.env.local`, with `NEXT_PUBLIC_SITE_URL` set to your HTTPS origin (for example
+   `https://your-app.vercel.app`).
+6. Deploy. Open `/admin/login` with your `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+
+Production refuses to start without `DATABASE_URL`, `AUTH_SECRET`, `ENCRYPTION_KEY`,
+`ADMIN_EMAIL`, `ADMIN_PASSWORD`, and an HTTPS `NEXT_PUBLIC_SITE_URL`. Demo catalog fallbacks
+are disabled when `NODE_ENV=production`.
+
 ## Architecture
 
 The Next.js application renders SEO-critical pages on the server. PostgreSQL is the source of truth;

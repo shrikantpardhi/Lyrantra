@@ -3,7 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 const inactiveUiLocales = new Set(["hi", "es", "ar"]);
 
 export function proxy(request: NextRequest) {
-  const segments = request.nextUrl.pathname.split("/");
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+    const session = request.cookies.get("lyranta_admin")?.value;
+    if (!session) {
+      const login = request.nextUrl.clone();
+      login.pathname = "/admin/login";
+      return NextResponse.redirect(login);
+    }
+  }
+
+  const segments = pathname.split("/");
   const locale = segments[1];
   if (!inactiveUiLocales.has(locale)) return NextResponse.next();
 

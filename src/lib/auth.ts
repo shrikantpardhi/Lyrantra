@@ -20,9 +20,21 @@ function safeEqual(left: string, right: string) {
 }
 
 export async function credentialsAreValid(email: string, password: string) {
-  const expectedEmail = process.env.ADMIN_EMAIL || "admin@lyranta.local";
-  const expectedPassword = process.env.ADMIN_PASSWORD || "lyranta-demo";
-  return safeEqual(email.toLowerCase(), expectedEmail.toLowerCase()) && safeEqual(password, expectedPassword);
+  const expectedEmail = process.env.ADMIN_EMAIL;
+  const expectedPassword = process.env.ADMIN_PASSWORD;
+
+  if (process.env.NODE_ENV === "production") {
+    if (!expectedEmail || !expectedPassword) {
+      throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD must be configured in production");
+    }
+  }
+
+  const emailToMatch = expectedEmail || "admin@lyranta.local";
+  const passwordToMatch = expectedPassword || "lyranta-demo";
+  return (
+    safeEqual(email.toLowerCase(), emailToMatch.toLowerCase()) &&
+    safeEqual(password, passwordToMatch)
+  );
 }
 
 export async function createAdminSession(email: string) {
@@ -35,7 +47,7 @@ export async function createAdminSession(email: string) {
   store.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
     path: "/",
     maxAge: SESSION_DURATION,
   });

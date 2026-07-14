@@ -14,11 +14,14 @@ type DiscoveryResult = {
 };
 
 function encryptionKey() {
-  const source = process.env.ENCRYPTION_KEY || process.env.AUTH_SECRET;
+  const source = process.env.ENCRYPTION_KEY;
   if (!source && process.env.NODE_ENV === "production") {
     throw new Error("ENCRYPTION_KEY must be configured in production");
   }
-  return createHash("sha256").update(source || "lyranta-local-encryption-key").digest();
+  // Local-only fallback; production requires ENCRYPTION_KEY (never AUTH_SECRET).
+  return createHash("sha256")
+    .update(source || process.env.AUTH_SECRET || "lyranta-local-encryption-key")
+    .digest();
 }
 
 export function encryptSecret(value: string) {

@@ -52,7 +52,7 @@ export default async function LocaleHome({
             </div>
           </div>
           <div className="hero-stats" aria-label="Lyranta catalog highlights">
-            <div><BookOpenText /><span><strong>{songs.length}+</strong>curated demos</span></div>
+            <div><BookOpenText /><span><strong>{songs.length}+</strong>published songs</span></div>
             <div><Globe2 /><span><strong>{facets.languages.length}</strong>languages</span></div>
             <div><Sparkles /><span><strong>Human</strong>reviewed</span></div>
           </div>

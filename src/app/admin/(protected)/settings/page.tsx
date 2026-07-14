@@ -1,9 +1,9 @@
-import { CheckCircle2, CircleAlert, Database, Globe2, KeyRound, Search } from "lucide-react";
+import { CheckCircle2, CircleAlert, Database, Globe2, KeyRound, Search, ShieldCheck } from "lucide-react";
 
 function Status({ ready }: { ready: boolean }) {
   return ready
     ? <span className="status published"><CheckCircle2 size={11} /> ready</span>
-    : <span className="status pending"><CircleAlert size={11} /> demo mode</span>;
+    : <span className="status pending"><CircleAlert size={11} /> missing</span>;
 }
 
 export default function SettingsPage() {
@@ -12,6 +12,7 @@ export default function SettingsPage() {
     { label: "Public site URL", detail: "Canonical URLs, sitemap, and social metadata", ready: Boolean(process.env.NEXT_PUBLIC_SITE_URL), icon: Globe2 },
     { label: "Authentication secret", detail: "Signed, HTTP-only administrative sessions", ready: Boolean(process.env.AUTH_SECRET), icon: KeyRound },
     { label: "Secret encryption", detail: "AES-256-GCM encryption for AI provider credentials", ready: Boolean(process.env.ENCRYPTION_KEY), icon: KeyRound },
+    { label: "Admin credentials", detail: "Studio sign-in email and password configured", ready: Boolean(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD), icon: ShieldCheck },
     { label: "Search indexing", detail: "PostgreSQL multilingual simple-text index", ready: Boolean(process.env.DATABASE_URL), icon: Search },
   ];
   return (

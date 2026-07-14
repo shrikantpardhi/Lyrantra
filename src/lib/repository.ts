@@ -32,6 +32,11 @@ type MemoryStore = {
 const globalStore = globalThis as unknown as { lyrantaStore?: MemoryStore };
 
 function memory(): MemoryStore {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "In-memory demo catalog is disabled in production. Configure DATABASE_URL.",
+    );
+  }
   if (!globalStore.lyrantaStore) {
     globalStore.lyrantaStore = {
       songs: structuredClone(seedSongs),
