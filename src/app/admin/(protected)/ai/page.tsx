@@ -76,8 +76,9 @@ export default async function AIWorkspace({
   const seenQueueKeys = new Set<string>();
   const reviewQueue: ReviewRow[] = runs.flatMap((run) =>
     parseRunDetails(run.details)
-      .map((candidate, index) => {
-        if (candidate.reviewStatus !== "pending") return undefined;
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) => candidate.reviewStatus === "pending")
+      .map(({ candidate, index }) => {
         const key = duplicateKeyForCandidate(candidate);
         const queueDuplicate = seenQueueKeys.has(key);
         seenQueueKeys.add(key);
@@ -90,7 +91,6 @@ export default async function AIWorkspace({
             : !hasLyrics
               ? "missing_lyrics"
               : "new";
-        const canAccept = status === "new";
         return {
           key: `${run.id}:${index}`,
           runId: run.id,
@@ -110,10 +110,9 @@ export default async function AIWorkspace({
           meaningPreview: candidate.interpretation?.summary,
           catalogSongId: catalogMatch?.id,
           status,
-          canAccept,
+          canAccept: status === "new",
         } satisfies ReviewRow;
-      })
-      .filter((item): item is ReviewRow => Boolean(item)),
+      }),
   );
 
   const duplicateCount = reviewQueue.filter(
