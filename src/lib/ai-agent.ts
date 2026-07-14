@@ -1,17 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { parseDiscovery, serializeRunDetails, DISCOVERY_JSON_SCHEMA } from "@/lib/ai-discovery";
 import type { AIProvider, AIRun } from "@/lib/types";
 import { listAIProviders, saveAIRun } from "@/lib/repository";
-
-type DiscoveryResult = {
-  title: string;
-  artists: string[];
-  releaseYear: number;
-  language: string;
-  genre?: string;
-  movie?: string;
-  officialSourceUrl: string;
-  description: string;
-};
 
 function encryptionKey() {
   const source = process.env.ENCRYPTION_KEY;
@@ -39,37 +29,23 @@ export function decryptSecret(value: string) {
 }
 
 function discoveryPrompt(limit: number) {
-  return `You are a music metadata research assistant for Lyranta.
+  return `You are a music metadata and meaning research assistant for Lyranta.
 Find up to ${limit} songs officially released in the last seven days.
 Use only official artist, label, movie studio, music platform, or rights-holder sources.
-Do not return lyrics, lyric excerpts, fan transcriptions, rumors, or inferred credits.
-Return a JSON array with: title, artists (array), releaseYear, language, genre,
-movie (optional), officialSourceUrl, and a concise factual description.
-Every item must have one directly supporting officialSourceUrl.`;
-}
 
-function parseDiscovery(text: string, limit: number): DiscoveryResult[] {
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start < 0 || end < start) return [];
-  const parsed = JSON.parse(text.slice(start, end + 1)) as unknown;
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter((item): item is DiscoveryResult => {
-      if (!item || typeof item !== "object") return false;
-      const candidate = item as Record<string, unknown>;
-      return (
-        typeof candidate.title === "string" &&
-        Array.isArray(candidate.artists) &&
-        candidate.artists.every((artist) => typeof artist === "string") &&
-        typeof candidate.releaseYear === "number" &&
-        typeof candidate.language === "string" &&
-        typeof candidate.officialSourceUrl === "string" &&
-        /^https:\/\//.test(candidate.officialSourceUrl) &&
-        typeof candidate.description === "string"
-      );
-    })
-    .slice(0, limit);
+Return the most COMPLETE catalog draft possible for editorial review.
+Every object MUST follow this JSON shape:
+${DISCOVERY_JSON_SCHEMA}
+
+Rules:
+- Fill every field you can verify from official/public sources.
+- artists must include short bios when available.
+- platformLinks should include Spotify, Apple Music, YouTube Music, or official pages when available (HTTPS only).
+- interpretation is REQUIRED: rich summary, at least 3 themes, culturalContext, and at least 3 section meanings (Verse/Chorus/Bridge style) without quoting lyrics.
+- lyricEditions describe which language versions editors should prepare later, with source notes — never include lyric text, excerpts, reconstructions, or fan transcriptions.
+- Do NOT return lyrics, lyric excerpts, paraphrased verses, rumors, or inferred private credits.
+- Every item needs one directly supporting officialSourceUrl.
+- Respond with a JSON array only.`;
 }
 
 async function callGemini(provider: AIProvider, apiKey: string, prompt: string) {
@@ -169,11 +145,18 @@ export async function runDiscoveryAgent() {
         : provider.provider === "openai"
           ? await callOpenAI(provider, apiKey, prompt)
           : await callCompatible(provider, apiKey, prompt);
+    if (!text.trim()) throw new Error("The provider returned an empty response");
     const discoveries = parseDiscovery(text, candidateLimit);
-    run.status = "needs_review";
-    run.candidates = discoveries.length;
-    run.summary = `Found ${discoveries.length} metadata candidate${discoveries.length === 1 ? "" : "s"} for editorial review.`;
-    run.details = JSON.stringify(discoveries, null, 2);
+    if (!discoveries.length) {
+      run.status = "failed";
+      run.summary = "The provider responded, but no valid metadata candidates were found.";
+      run.details = text.slice(0, 4000);
+    } else {
+      run.status = "needs_review";
+      run.candidates = discoveries.length;
+      run.summary = `Found ${discoveries.length} metadata candidate${discoveries.length === 1 ? "" : "s"} for editorial review.`;
+      run.details = serializeRunDetails(discoveries);
+    }
   } catch (error) {
     run.status = "failed";
     run.summary = error instanceof Error ? error.message : "The discovery run failed";

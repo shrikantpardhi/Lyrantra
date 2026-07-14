@@ -389,7 +389,52 @@ export const seedAIRuns: AIRun[] = [
     source: "manual",
     summary: "Found one possible 2026 release; source verification required.",
     candidates: 1,
-    details: "Demo run. No copyrighted lyrics were imported.",
+    details: JSON.stringify(
+      {
+        candidates: [
+          {
+            title: "Harbor Light (Demo)",
+            alternateTitle: "Harbor Light",
+            artists: [{ name: "Demo Ensemble", bio: "Demonstration act used for Studio review samples." }],
+            releaseYear: 2026,
+            language: "English",
+            languageCode: "en",
+            category: "Singles",
+            genre: "Folk",
+            tags: ["ai-discovery", "demo", "coastal"],
+            officialSourceUrl: "https://example.com/harbor-light",
+            description: "Demonstration metadata candidate with complete catalog fields for Studio review.",
+            platformLinks: [
+              { platform: "Official source", url: "https://example.com/harbor-light" },
+              { platform: "YouTube", url: "https://www.youtube.com/watch?v=demo" },
+            ],
+            lyricSourceNote: "Add authorized lyrics before publishing.",
+            lyricEditions: [
+              {
+                language: "English",
+                languageCode: "en",
+                type: "original",
+                sourceNote: "Authorized publisher copy",
+              },
+            ],
+            interpretation: {
+              summary: "A demo meaning draft about finding home after travel.",
+              themes: ["belonging", "travel", "memory"],
+              culturalContext: "Uses coastal imagery for demonstration purposes.",
+              sections: [
+                { label: "Verse 1", meaning: "Sets out the journey away from familiar places." },
+                { label: "Chorus", meaning: "Returns to the idea of home as light." },
+                { label: "Bridge", meaning: "Accepts change without losing belonging." },
+              ],
+              sourceUrl: "https://example.com/harbor-light",
+            },
+            reviewStatus: "pending",
+          },
+        ],
+      },
+      null,
+      2,
+    ),
     createdAt: "2026-07-12T05:00:00.000Z",
   },
 ];
