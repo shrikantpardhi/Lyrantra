@@ -229,6 +229,7 @@ img { max-width: 100%; }
 .status { display: inline-flex; border-radius: 999px; padding: 5px 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; background: #edf1ee; color: #536158; }
 .status.published, .status.approved, .status.completed { background: var(--lime-soft); color: var(--green); }
 .status.review, .status.needs_review, .status.pending { background: #fff3d6; color: #8a5b00; }
+.status.queued, .status.running { background: #e7f0ff; color: #1d4f91; }
 .status.failed, .status.rejected { background: #ffebe6; color: #a43e2a; }
 .row-actions { display: flex; gap: 6px; align-items: center; }
 .row-actions a, .row-actions button { border: 1px solid var(--line); background: #fff; color: var(--green); border-radius: 8px; padding: 6px 8px; font-size: 10px; }

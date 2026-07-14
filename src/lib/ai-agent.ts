@@ -1,7 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { parseDiscovery, serializeRunDetails, DISCOVERY_JSON_SCHEMA } from "@/lib/ai-discovery";
 import type { AIProvider, AIRun } from "@/lib/types";
-import { listAIProviders, saveAIRun } from "@/lib/repository";
+import { getAIRunById, listAIProviders, saveAIRun } from "@/lib/repository";
+
+/** Provider calls with search grounding often need more than a short request window. */
+const PROVIDER_TIMEOUT_MS = 120_000;
 
 function encryptionKey() {
   const source = process.env.ENCRYPTION_KEY;
@@ -48,6 +51,17 @@ Rules:
 - Respond with a JSON array only.`;
 }
 
+function providerErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) return "The discovery run failed";
+  if (error.name === "TimeoutError" || /aborted due to timeout|timed out|TimeoutError/i.test(error.message)) {
+    return "The AI provider took too long to respond. The run timed out — try again or lower candidates per run.";
+  }
+  if (error.name === "AbortError") {
+    return "The AI provider request was aborted before it finished.";
+  }
+  return error.message || "The discovery run failed";
+}
+
 async function callGemini(provider: AIProvider, apiKey: string, prompt: string) {
   const base = provider.baseUrl || "https://generativelanguage.googleapis.com/v1beta";
   const response = await fetch(
@@ -60,7 +74,7 @@ async function callGemini(provider: AIProvider, apiKey: string, prompt: string) 
         tools: [{ google_search: {} }],
         generationConfig: { temperature: 0.1 },
       }),
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     },
   );
   if (!response.ok) throw new Error(`Gemini request failed with ${response.status}`);
@@ -80,7 +94,7 @@ async function callOpenAI(provider: AIProvider, apiKey: string, prompt: string) 
       tools: [{ type: "web_search" }],
       input: prompt,
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`OpenAI request failed with ${response.status}`);
   const payload = (await response.json()) as {
@@ -109,7 +123,7 @@ async function callCompatible(provider: AIProvider, apiKey: string, prompt: stri
       max_tokens: 3000,
       temperature: 0.1,
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`Provider request failed with ${response.status}`);
   const payload = (await response.json()) as {
@@ -121,19 +135,39 @@ async function callCompatible(provider: AIProvider, apiKey: string, prompt: stri
   return payload.choices?.[0]?.message?.content || "";
 }
 
-export async function runDiscoveryAgent() {
+/** Create a queued run immediately so the admin request can return without waiting on the provider. */
+export async function enqueueDiscoveryRun() {
+  const provider = (await listAIProviders()).find((item) => item.enabled);
+  if (!provider) throw new Error("No enabled AI provider is configured");
+
   const run: AIRun = {
     id: randomUUID(),
-    status: "running",
+    providerId: provider.id,
+    status: "queued",
     source: "manual",
-    summary: "Researching official music sources…",
+    summary: "Queued — research will start in the background…",
     candidates: 0,
     createdAt: new Date().toISOString(),
   };
   await saveAIRun(run);
+  return run;
+}
+
+/** Execute a previously queued run. Safe to call from `after()` so the HTTP response is not blocked. */
+export async function executeDiscoveryRun(runId: string) {
+  const existing = await getAIRunById(runId);
+  if (!existing) return;
+
+  const run: AIRun = {
+    ...existing,
+    status: "running",
+    summary: "Researching official music sources…",
+  };
+  await saveAIRun(run);
 
   try {
-    const provider = (await listAIProviders()).find((item) => item.enabled);
+    const provider = (await listAIProviders()).find((item) => item.id === run.providerId && item.enabled)
+      || (await listAIProviders()).find((item) => item.enabled);
     if (!provider) throw new Error("No enabled AI provider is configured");
     run.providerId = provider.id;
     const apiKey = decryptSecret(provider.encryptedApiKey);
@@ -151,6 +185,7 @@ export async function runDiscoveryAgent() {
       run.status = "failed";
       run.summary = "The provider responded, but no valid metadata candidates were found.";
       run.details = text.slice(0, 4000);
+      run.candidates = 0;
     } else {
       run.status = "needs_review";
       run.candidates = discoveries.length;
@@ -159,9 +194,16 @@ export async function runDiscoveryAgent() {
     }
   } catch (error) {
     run.status = "failed";
-    run.summary = error instanceof Error ? error.message : "The discovery run failed";
+    run.summary = providerErrorMessage(error);
+    run.candidates = 0;
   }
   run.finishedAt = new Date().toISOString();
   await saveAIRun(run);
   return run;
+}
+
+/** @deprecated Prefer enqueueDiscoveryRun + executeDiscoveryRun for non-blocking admin UX. */
+export async function runDiscoveryAgent() {
+  const run = await enqueueDiscoveryRun();
+  return executeDiscoveryRun(run.id);
 }
