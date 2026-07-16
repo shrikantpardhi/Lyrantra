@@ -86,7 +86,6 @@ export default async function LyricsPage({
     listSongs({ genre: song.genre, limit: 4, sort: "trending" }),
   ]);
   const relatedSongs = related.items.filter((item) => item.id !== song.id).slice(0, 3);
-  const artistNames = song.artists.map((artist) => artist.name).join(", ");
   const interpretation = getPublishedInterpretation(song.interpretation);
   const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/${locale}/lyrics/${song.slug}`;
@@ -136,21 +135,21 @@ export default async function LyricsPage({
                   </span>
                 ))}
               </p>
-              <div className="song-meta-row">
-                <Link href={`/${locale}/genre/${slugify(song.genre)}`}>
+              <div className="meta-pills">
+                <Link className="badge" href={`/${locale}/genre/${slugify(song.genre)}`}>
                   <Music size={14} />
                   {song.genre}
                 </Link>
-                <Link href={`/${locale}/year/${song.releaseYear}`}>
+                <Link className="badge" href={`/${locale}/year/${song.releaseYear}`}>
                   <Calendar size={14} />
                   {song.releaseYear}
                 </Link>
-                <Link href={`/${locale}/language/${slugify(song.language)}`}>
+                <Link className="badge" href={`/${locale}/language/${slugify(song.language)}`}>
                   <Tag size={14} />
                   {song.language}
                 </Link>
                 {song.movie && (
-                  <Link href={`/${locale}/movie/${song.movie.slug}`}>
+                  <Link className="badge" href={`/${locale}/movie/${song.movie.slug}`}>
                     <Film size={14} />
                     {song.movie.title}
                   </Link>
@@ -202,7 +201,7 @@ export default async function LyricsPage({
             )}
 
             {song.tags.length > 0 && (
-              <div className="tag-row">
+              <div className="tag-list">
                 {song.tags.map((tag) => (
                   <Link href={`/${locale}/tag/${slugify(tag)}`} key={tag}>
                     #{tag}
@@ -256,31 +255,53 @@ export default async function LyricsPage({
               <dl className="detail-list">
                 <div>
                   <dt>Artists</dt>
-                  <dd>{artistNames}</dd>
+                  <dd>
+                    {song.artists.map((artist) => (
+                      <Link className="badge" href={`/${locale}/artist/${artist.slug}`} key={artist.id}>
+                        {artist.name}
+                      </Link>
+                    ))}
+                  </dd>
                 </div>
                 <div>
                   <dt>Language</dt>
-                  <dd>{song.language}</dd>
+                  <dd>
+                    <Link className="badge" href={`/${locale}/language/${slugify(song.language)}`}>
+                      {song.language}
+                    </Link>
+                  </dd>
                 </div>
                 <div>
                   <dt>Genre</dt>
-                  <dd>{song.genre}</dd>
+                  <dd>
+                    <Link className="badge" href={`/${locale}/genre/${slugify(song.genre)}`}>
+                      {song.genre}
+                    </Link>
+                  </dd>
                 </div>
                 <div>
                   <dt>Released</dt>
-                  <dd>{song.releaseYear}</dd>
+                  <dd>
+                    <Link className="badge" href={`/${locale}/year/${song.releaseYear}`}>
+                      {song.releaseYear}
+                    </Link>
+                  </dd>
                 </div>
                 {song.movie && (
                   <div>
                     <dt>Movie</dt>
                     <dd>
-                      <Link href={`/${locale}/movie/${song.movie.slug}`}>{song.movie.title}</Link>
+                      <Link className="badge" href={`/${locale}/movie/${song.movie.slug}`}>
+                        {song.movie.title}
+                      </Link>
                     </dd>
                   </div>
                 )}
                 <div>
                   <dt>Reads</dt>
-                  <dd>{viewCount.toLocaleString()}</dd>
+                  <dd>
+                    <span className="badge muted-badge">{viewCount.toLocaleString()}</span>
+                  </dd>
                 </div>
               </dl>
             </section>
