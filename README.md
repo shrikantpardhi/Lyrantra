@@ -100,7 +100,26 @@ data (`ALLOW_SEED=true` is required).
 5. In Vercel → Project → Settings → Environment Variables, set the same production values as
    `.env.local`, with `NEXT_PUBLIC_SITE_URL` set to your HTTPS origin (for example
    `https://your-app.vercel.app`).
-6. Deploy. Open `/admin/login` with your `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+6. Wire manual approval (below), then open `/admin/login` with your `ADMIN_EMAIL` /
+   `ADMIN_PASSWORD`.
+
+### Manual approval for production (no Vercel tokens in Git)
+
+Vercel still builds from the GitHub integration. Production domains stay unassigned until CI
+passes **and** a reviewer approves the GitHub `production` environment. No `VERCEL_TOKEN` (or
+other Vercel secrets) belong in the repo or in GitHub Actions secrets.
+
+1. In GitHub → **Settings → Environments**, create an environment named `production`.
+2. Under **Deployment protection rules**, enable **Required reviewers** and add yourself (or the
+   release team).
+3. In Vercel → Project → **Settings → Deployment Checks**, add a GitHub check and require the
+   Actions job **`approve-production`** (from the `CI` workflow). Keep automatic aliasing for
+   production enabled.
+4. On each push to `main`: Vercel builds → GitHub runs `verify` → waits for approval →
+   `approve-production` succeeds → Vercel assigns the production domain.
+
+Do not commit `.vercel/`, `.env*`, or API tokens. `.gitignore` already excludes `.vercel` and
+env files.
 
 Production refuses to start without `DATABASE_URL`, `AUTH_SECRET`, `ENCRYPTION_KEY`,
 `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and an HTTPS `NEXT_PUBLIC_SITE_URL`. Demo catalog fallbacks

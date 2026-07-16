@@ -24,3 +24,16 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+
+  # Blocks production traffic on Vercel until a reviewer approves.
+  # No Vercel tokens or secrets are used — Vercel Git deploys the build;
+  # Deployment Checks wait for this job before assigning the production domain.
+  approve-production:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Production release approved
+        run: echo "CI passed and production release was approved."
