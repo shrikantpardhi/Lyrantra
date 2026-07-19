@@ -60,7 +60,7 @@ export default async function ArtistPage({
         </header>
         <div className="section-heading">
           <div><div className="eyebrow">{songs.total} linked songs</div><h2>Lyrics by {artist.name}</h2></div>
-          <p>Collaborations and featured appearances are included through Lyranta’s multi-artist credits.</p>
+          <p>Collaborations and featured appearances are included through Lyrantra’s multi-artist credits.</p>
         </div>
         <SongGrid songs={songs.items} locale={locale} />
         <Pagination pagination={songs} href={(next) => `/${locale}/artist/${slug}?page=${next}`} />

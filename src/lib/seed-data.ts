@@ -55,7 +55,7 @@ export const seedSongs: Song[] = [
     slug: "city-lights",
     title: "City Lights",
     description:
-      "A hopeful synth-pop song about choosing connection over the noise of a restless city. This original demo work was written for Lyranta.",
+      "A hopeful synth-pop song about choosing connection over the noise of a restless city. This original demo work was written for Lyrantra.",
     releaseYear: 2026,
     language: "English",
     category: "New releases",
@@ -71,7 +71,7 @@ export const seedSongs: Song[] = [
         language: "English",
         languageCode: "en",
         type: "original",
-        source: "Lyranta original demo",
+        source: "Lyrantra original demo",
         text: `Street signs flicker like a quiet constellation
 Every window holds a world I’ll never know
 Then your voice cuts through the midnight conversation
@@ -87,7 +87,7 @@ We come alive under the city lights`,
         language: "Hindi",
         languageCode: "hi",
         type: "translation",
-        source: "Lyranta editorial translation",
+        source: "Lyrantra editorial translation",
         text: `शहर की रोशनी में राह मिल रही है
 हर शोर में अपनी बात खिल रही है
 न नक्शा, न मंज़िल, बस हाथों में हाथ
@@ -135,7 +135,7 @@ We come alive under the city lights`,
     title: "बारिश के ख़त",
     alternateTitle: "Baarish Ke Khat",
     description:
-      "A gentle Hindi ballad about memories returning with the first monsoon rain. An original Lyranta demonstration work.",
+      "A gentle Hindi ballad about memories returning with the first monsoon rain. An original Lyrantra demonstration work.",
     releaseYear: 2026,
     language: "Hindi",
     category: "Movie songs",
@@ -151,7 +151,7 @@ We come alive under the city lights`,
         language: "Hindi",
         languageCode: "hi",
         type: "original",
-        source: "Lyranta original demo",
+        source: "Lyrantra original demo",
         text: `पहली बूँद ने खिड़की पर
 तेरा नाम फिर लिख दिया
 भीगे काग़ज़ की ख़ुशबू ने
@@ -167,7 +167,7 @@ We come alive under the city lights`,
         language: "Hindi (Latin)",
         languageCode: "hi-Latn",
         type: "transliteration",
-        source: "Lyranta editorial transliteration",
+        source: "Lyrantra editorial transliteration",
         text: `Pehli boond ne khidki par
 Tera naam phir likh diya
 Bheege kaagaz ki khushboo ne
@@ -246,7 +246,7 @@ How I wonder what you are!`,
         language: "Spanish",
         languageCode: "es",
         type: "translation",
-        source: "Lyranta editorial adaptation",
+        source: "Lyrantra editorial adaptation",
         text: `Brilla, brilla, estrella,
 ¿cómo eres tú?
 Sobre el mundo, tan arriba,
@@ -320,7 +320,7 @@ The hour I first believed.`,
         language: "Spanish",
         languageCode: "es",
         type: "original",
-        source: "Lyranta original demo",
+        source: "Lyrantra original demo",
         text: `Vuelvo al camino de arena
 Donde aprendí a escuchar
 Todo lo que el viento cuenta
@@ -342,7 +342,7 @@ La marea sabe todo lo que quiero olvidar`,
     slug: "paper-moons",
     title: "Paper Moons",
     description:
-      "A dreamy unreleased editorial sample queued for review, demonstrating Lyranta’s publishing workflow.",
+      "A dreamy unreleased editorial sample queued for review, demonstrating Lyrantra’s publishing workflow.",
     releaseYear: 2026,
     language: "English",
     category: "New releases",
@@ -356,7 +356,7 @@ La marea sabe todo lo que quiero olvidar`,
         language: "English",
         languageCode: "en",
         type: "original",
-        source: "Lyranta original demo",
+        source: "Lyrantra original demo",
         text: "We hung paper moons above the avenue\nAnd watched them turn the midnight silver-blue.",
       },
     ],

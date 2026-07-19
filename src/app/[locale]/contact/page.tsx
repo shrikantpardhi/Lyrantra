@@ -5,7 +5,7 @@ import { PendingSubmitButton } from "@/components/ui-feedback";
 
 export const metadata: Metadata = {
   title: "Contact us",
-  description: "Contact the Lyranta team about corrections, licensing, partnerships, or support.",
+  description: "Contact the Lyrantra team about corrections, licensing, partnerships, or support.",
   alternates: { canonical: "/en/contact" },
 };
 
@@ -19,7 +19,7 @@ export default async function ContactPage({
     <div className="page">
       <div className="narrow">
         <div className="eyebrow">We are listening</div>
-        <h1 className="search-title">Contact Lyranta</h1>
+        <h1 className="search-title">Contact Lyrantra</h1>
         <p className="muted" style={{ margin: "12px 0 28px", lineHeight: 1.7 }}>
           Send a correction, ask about licensing, request content removal, propose a partnership, or tell us how we can improve.
         </p>
@@ -38,7 +38,7 @@ export default async function ContactPage({
         </form>
         <div className="category-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)", marginTop: 22 }}>
           <div className="category-card"><MessageCircle /><strong>Editorial</strong><span>Corrections and missing credits are reviewed before updates.</span></div>
-          <div className="category-card"><ShieldAlert /><strong>Copyright</strong><span>Rights holders can request removal by email through this form. Lyranta does not claim ownership of artist or writer content.</span></div>
+          <div className="category-card"><ShieldAlert /><strong>Copyright</strong><span>Rights holders can request removal by email through this form. Lyrantra does not claim ownership of artist or writer content.</span></div>
         </div>
       </div>
     </div>

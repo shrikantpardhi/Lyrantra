@@ -29,7 +29,7 @@ type MemoryStore = {
   runs: AIRun[];
 };
 
-const globalStore = globalThis as unknown as { lyrantaStore?: MemoryStore };
+const globalStore = globalThis as unknown as { lyrantraStore?: MemoryStore };
 
 function memory(): MemoryStore {
   if (process.env.NODE_ENV === "production") {
@@ -37,8 +37,8 @@ function memory(): MemoryStore {
       "In-memory demo catalog is disabled in production. Configure DATABASE_URL.",
     );
   }
-  if (!globalStore.lyrantaStore) {
-    globalStore.lyrantaStore = {
+  if (!globalStore.lyrantraStore) {
+    globalStore.lyrantraStore = {
       songs: structuredClone(seedSongs),
       artists: structuredClone(seedArtists),
       movies: structuredClone(seedMovies),
@@ -48,7 +48,7 @@ function memory(): MemoryStore {
       runs: structuredClone(seedAIRuns),
     };
   }
-  return globalStore.lyrantaStore;
+  return globalStore.lyrantraStore;
 }
 
 function normalize(value: string) {

@@ -3,7 +3,7 @@ import { CheckCircle2, Globe2, HeartHandshake, ShieldCheck } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "About us",
-  description: "Learn why Lyranta is building a trusted, multilingual home for song lyrics and music context.",
+  description: "Learn why Lyrantra is building a trusted, multilingual home for song lyrics and music context.",
   alternates: { canonical: "/en/about" },
 };
 
@@ -11,10 +11,10 @@ export default function AboutPage() {
   return (
     <div className="page">
       <article className="narrow prose">
-        <div className="eyebrow">About Lyranta</div>
+        <div className="eyebrow">About Lyrantra</div>
         <h1>Music deserves more than a wall of words.</h1>
         <p>
-          Lyranta is building a trustworthy place to understand songs across languages. We pair
+          Lyrantra is building a trustworthy place to understand songs across languages. We pair
           carefully sourced lyrics with translations, transliterations, credits, human-reviewed
           interpretations, and links to the platforms that support artists.
         </p>
@@ -27,7 +27,7 @@ export default function AboutPage() {
         </div>
         <h2>Our editorial promise</h2>
         <p>
-          Song content belongs to the artists, writers, and rights holders. Lyranta does not claim
+          Song content belongs to the artists, writers, and rights holders. Lyrantra does not claim
           ownership of third-party lyrics or compositions. We do not treat scraped or AI-generated
           lyrics as verified content. Every publication must have an authorized source, a clear
           rights basis, and accountable editorial review. Interpretations are separately reviewed,

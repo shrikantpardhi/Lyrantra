@@ -8,7 +8,7 @@ export function ShareButton({ title }: { title: string }) {
   const [copied, setCopied] = useState(false);
 
   async function share() {
-    const data = { title: `${title} lyrics | Lyranta`, url: window.location.href };
+    const data = { title: `${title} lyrics | Lyrantra`, url: window.location.href };
     if (navigator.share) {
       await navigator.share(data);
       return;

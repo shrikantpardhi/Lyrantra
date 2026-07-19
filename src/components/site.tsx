@@ -24,11 +24,11 @@ import { slugify } from "@/lib/repository";
 
 export function Logo({ admin = false }: { admin?: boolean }) {
   return (
-    <Link href={admin ? "/admin" : "/en"} className="logo" aria-label="Lyranta home">
+    <Link href={admin ? "/admin" : "/en"} className="logo" aria-label="Lyrantra home">
       <span className="logo-mark">
         <Music2 size={20} />
       </span>
-      <span>Lyra<span>nta</span></span>
+      <span>Lyra<span>ntra</span></span>
       {admin && <small>Studio</small>}
     </Link>
   );
@@ -46,7 +46,7 @@ export function SiteHeader({ locale = "en" }: { locale?: string }) {
         </nav>
         <form className="header-search" action={`/${locale}/search`}>
           <Search size={17} aria-hidden="true" />
-          <input name="q" aria-label="Search Lyranta" placeholder="Songs, artists, lyrics…" />
+          <input name="q" aria-label="Search Lyrantra" placeholder="Songs, artists, lyrics…" />
         </form>
         <Link href="/admin" className="button ghost compact">
           Studio
@@ -85,7 +85,7 @@ export function SiteFooter({ locale = "en" }: { locale?: string }) {
         </div>
       </div>
       <div className="shell footer-bottom">
-        <span>© {new Date().getFullYear()} Lyranta</span>
+        <span>© {new Date().getFullYear()} Lyrantra</span>
         <span>Built for listeners, translators, and artists.</span>
       </div>
     </footer>

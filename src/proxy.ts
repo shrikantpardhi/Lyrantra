@@ -6,7 +6,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
-    const session = request.cookies.get("lyranta_admin")?.value;
+    const session = request.cookies.get("lyrantra_admin")?.value;
     if (!session) {
       const login = request.nextUrl.clone();
       login.pathname = "/admin/login";
