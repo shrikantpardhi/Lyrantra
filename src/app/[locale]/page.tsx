@@ -51,7 +51,7 @@ export default async function LocaleHome({
               ))}
             </div>
           </div>
-          <div className="hero-stats" aria-label="Lyranta catalog highlights">
+          <div className="hero-stats" aria-label="Lyrantra catalog highlights">
             <div><BookOpenText /><span><strong>{songs.length}+</strong>published songs</span></div>
             <div><Globe2 /><span><strong>{facets.languages.length}</strong>languages</span></div>
             <div><Sparkles /><span><strong>Human</strong>reviewed</span></div>
@@ -106,12 +106,12 @@ export default async function LocaleHome({
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebSite",
-            name: "Lyranta",
+            name: "Lyrantra",
             url: `${siteUrl}/${locale}`,
             description: "Reviewed multilingual lyrics, translations, credits, and song stories.",
             publisher: {
               "@type": "Organization",
-              name: "Lyranta",
+              name: "Lyrantra",
               url: siteUrl,
             },
           }).replace(/</g, "\\u003c"),

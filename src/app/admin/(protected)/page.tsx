@@ -22,7 +22,7 @@ export default async function AdminDashboard() {
     <>
       <header className="admin-heading">
         <div>
-          <div className="eyebrow">Lyranta Studio</div>
+          <div className="eyebrow">Lyrantra Studio</div>
           <h1>Editorial overview</h1>
           <p>
             {stats.views.toLocaleString()} lifetime reads · {stats.views7d.toLocaleString()} in the last 7 days

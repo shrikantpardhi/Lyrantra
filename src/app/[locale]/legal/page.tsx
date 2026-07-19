@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy, terms and copyright",
-  description: "Lyranta privacy, community, copyright, and takedown principles.",
+  description: "Lyrantra privacy, community, copyright, and takedown principles.",
   alternates: { canonical: "/en/legal" },
 };
 
@@ -14,7 +14,7 @@ export default function LegalPage() {
         <div className="eyebrow">Trust center</div>
         <h1>Privacy, terms and copyright</h1>
         <p>
-          This page explains how Lyranta handles content ownership, privacy, and removal requests.
+          This page explains how Lyrantra handles content ownership, privacy, and removal requests.
           Territory-specific licensing should still be reviewed by qualified counsel before a
           commercial catalog is published.
         </p>
@@ -22,9 +22,9 @@ export default function LegalPage() {
         <h2>Copyright and ownership</h2>
         <p>
           Lyrics, compositions, and related creative works remain the property of their writers,
-          artists, publishers, labels, and other rights holders. Lyranta does not claim ownership
-          of third-party song content displayed on this website. Publication on Lyranta is for
-          reference and discovery only and does not transfer copyright to Lyranta.
+          artists, publishers, labels, and other rights holders. Lyrantra does not claim ownership
+          of third-party song content displayed on this website. Publication on Lyrantra is for
+          reference and discovery only and does not transfer copyright to Lyrantra.
         </p>
         <p>
           We aim to publish lyrics only when they are public domain, provided by an authorized
@@ -34,7 +34,7 @@ export default function LegalPage() {
 
         <h2>Meaning and interpretation</h2>
         <p>
-          Song meanings are original editorial commentary by Lyranta editors, not official artist
+          Song meanings are original editorial commentary by Lyrantra editors, not official artist
           statements unless an authoritative source is explicitly linked. Interpretations are
           reviewed separately from lyrics and may reflect one reasonable reading rather than a
           definitive explanation.

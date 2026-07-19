@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
-const COOKIE_NAME = "lyranta_admin";
+const COOKIE_NAME = "lyrantra_admin";
 const SESSION_DURATION = 60 * 60 * 8;
 
 function secret() {
@@ -10,7 +10,7 @@ function secret() {
   if (!value && process.env.NODE_ENV === "production") {
     throw new Error("AUTH_SECRET must be configured in production");
   }
-  return new TextEncoder().encode(value || "lyranta-local-development-secret-change-me");
+  return new TextEncoder().encode(value || "lyrantra-local-development-secret-change-me");
 }
 
 function safeEqual(left: string, right: string) {
@@ -29,8 +29,8 @@ export async function credentialsAreValid(email: string, password: string) {
     }
   }
 
-  const emailToMatch = expectedEmail || "admin@lyranta.local";
-  const passwordToMatch = expectedPassword || "lyranta-demo";
+  const emailToMatch = expectedEmail || "admin@lyrantra.local";
+  const passwordToMatch = expectedPassword || "lyrantra-demo";
   return (
     safeEqual(email.toLowerCase(), emailToMatch.toLowerCase()) &&
     safeEqual(password, passwordToMatch)

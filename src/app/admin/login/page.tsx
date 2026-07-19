@@ -30,7 +30,7 @@ export default async function AdminLogin({
         </form>
         {process.env.NODE_ENV !== "production" && (
           <p style={{ marginTop: 18, marginBottom: 0 }}>
-            Local demo: admin@lyranta.local / lyranta-demo
+            Local demo: admin@lyrantra.local / lyrantra-demo
           </p>
         )}
       </section>

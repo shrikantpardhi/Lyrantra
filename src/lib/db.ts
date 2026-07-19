@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { assertProductionEnv, isProduction } from "@/lib/env";
 
 const globalForDatabase = globalThis as unknown as {
-  lyrantaSql?: ReturnType<typeof postgres>;
+  lyrantraSql?: ReturnType<typeof postgres>;
 };
 
 export const databaseEnabled = Boolean(process.env.DATABASE_URL);
@@ -17,10 +17,10 @@ export function db() {
     throw new Error("DATABASE_URL is not configured");
   }
 
-  if (!globalForDatabase.lyrantaSql) {
+  if (!globalForDatabase.lyrantraSql) {
     // Neon serverless + Vercel: keep the pool tiny and disable prepared statements
     // so the connection works through PgBouncer (use the *-pooler host in DATABASE_URL).
-    globalForDatabase.lyrantaSql = postgres(process.env.DATABASE_URL, {
+    globalForDatabase.lyrantraSql = postgres(process.env.DATABASE_URL, {
       max: isProduction() ? 1 : 3,
       idle_timeout: 20,
       connect_timeout: 10,
@@ -29,5 +29,5 @@ export function db() {
     });
   }
 
-  return globalForDatabase.lyrantaSql;
+  return globalForDatabase.lyrantraSql;
 }

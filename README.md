@@ -1,6 +1,6 @@
-# Lyranta
+# Lyrantra
 
-Lyranta is a multilingual lyrics publishing platform with artist and movie catalogs, translations,
+Lyrantra is a multilingual lyrics publishing platform with artist and movie catalogs, translations,
 transliterations, global search, categories, comments, official listening links, SEO controls, an
 editorial studio, and human-reviewed AI metadata discovery.
 
@@ -33,7 +33,7 @@ ALLOW_SEED=true npm run db:seed
 npm run dev
 ```
 
-Open `http://localhost:3000`. Without `DATABASE_URL`, Lyranta uses a non-persistent demonstration
+Open `http://localhost:3000`. Without `DATABASE_URL`, Lyrantra uses a non-persistent demonstration
 catalog. Studio login: set `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env.local` (demo defaults may apply
 locally only).
 
@@ -65,7 +65,7 @@ and automated backups.
 npm run lint
 npm run typecheck
 npm test
-NEXT_PUBLIC_SITE_URL=https://lyranta.example npm run build
+NEXT_PUBLIC_SITE_URL=https://lyrantra.example npm run build
 ```
 
 ## Production configuration
@@ -139,5 +139,5 @@ included standalone Docker image or a compatible Node.js platform.
 Build the container with its canonical origin:
 
 ```bash
-docker build --build-arg NEXT_PUBLIC_SITE_URL=https://lyranta.example -t lyranta .
+docker build --build-arg NEXT_PUBLIC_SITE_URL=https://lyrantra.example -t lyrantra .
 ```

@@ -8,7 +8,7 @@ export default function NotFound() {
         <Disc3 size={44} color="var(--green-2)" />
         <h1>That track is missing</h1>
         <p>The page may have moved, or the lyric has not joined our catalog yet.</p>
-        <Link className="button" href="/en">Return to Lyranta</Link>
+        <Link className="button" href="/en">Return to Lyrantra</Link>
       </section>
     </main>
   );

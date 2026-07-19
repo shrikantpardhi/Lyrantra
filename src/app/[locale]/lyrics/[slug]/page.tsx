@@ -15,7 +15,7 @@ import { getPublishedInterpretation } from "@/lib/interpretation";
 import { getComments, getSongBySlug, incrementSongViews, listSongs, slugify } from "@/lib/repository";
 import { getSiteUrl } from "@/lib/site-url";
 
-const VIEW_COOKIE_PREFIX = "lyranta_view_";
+const VIEW_COOKIE_PREFIX = "lyrantra_view_";
 const VIEW_COOKIE_MAX_AGE = 60 * 60 * 24;
 
 export async function generateMetadata({

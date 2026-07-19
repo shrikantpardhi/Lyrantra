@@ -26,7 +26,7 @@ export async function generateMetadata({
   const filtered = hasActiveFilters(query);
   return {
     title: filtered && query.q ? `Search results for “${query.q}”` : "Browse lyrics",
-    description: "Browse Lyranta by song, artist, movie, lyric text, meaning, language, category, genre, or year.",
+    description: "Browse Lyrantra by song, artist, movie, lyric text, meaning, language, category, genre, or year.",
     robots: filtered ? { index: false, follow: true } : { index: true, follow: true },
     alternates: { canonical: "/en/search" },
   };

@@ -25,7 +25,7 @@ function encryptionKey() {
   }
   // Local-only fallback; production requires ENCRYPTION_KEY (never AUTH_SECRET).
   return createHash("sha256")
-    .update(source || process.env.AUTH_SECRET || "lyranta-local-encryption-key")
+    .update(source || process.env.AUTH_SECRET || "lyrantra-local-encryption-key")
     .digest();
 }
 
@@ -73,10 +73,10 @@ function discoveryPrompt(limit: number, criteria: DiscoveryCriteria, catalogExcl
       ? "Prefer songs matching the year range above."
       : "Prefer songs officially released in the last seven days unless the criteria say otherwise.";
   const exclusionsBlock = catalogExclusions
-    ? `\nSongs already in the Lyranta catalog — do NOT propose these again:\n${catalogExclusions}\n`
+    ? `\nSongs already in the Lyrantra catalog — do NOT propose these again:\n${catalogExclusions}\n`
     : "";
 
-  return `You are a music metadata and meaning research assistant for Lyranta.
+  return `You are a music metadata and meaning research assistant for Lyrantra.
 Find up to ${limit} songs that match the research brief below.
 Use only official artist, label, movie studio, music platform, or rights-holder sources.
 
